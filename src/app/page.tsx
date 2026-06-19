@@ -69,6 +69,13 @@ export default function Home() {
         body: formData,
       });
 
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        setError("Analysis failed. Please try again.");
+        setStatus("error");
+        return;
+      }
+
       const data = await res.json();
 
       if (!data.success) {

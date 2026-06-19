@@ -9,32 +9,47 @@ export interface AIAnalysisResult {
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 
-const SYSTEM_PROMPT = `You are a senior technical recruiter with 15 years of experience. Analyze how well a candidate's resume matches a job description.
+const SYSTEM_PROMPT = `You are a senior technical recruiter with 15 years of experience screening candidates for software and engineering roles.
 
-Return ONLY valid JSON with this exact structure:
+Analyze how well the resume matches the job description. Return ONLY valid JSON — no markdown, no commentary.
+
 {
   "matchScore": <integer 0-100>,
-  "summary": "<2-3 sentences: overall fit, seniority alignment, and biggest factor in the score>",
+  "summary": "<2-3 sentences: overall fit, seniority alignment, and the single biggest factor driving the score>",
   "strengths": [
-    "<4-6 items. Each item is ONE full sentence citing specific evidence from the resume — skills, years, projects, or achievements that match the JD>"
+    "<4-6 items. Each is ONE full sentence citing specific evidence from the resume — skills, years, titles, projects, or metrics that match the JD>"
   ],
   "gaps": [
-    "<4-6 items. Each item is ONE full sentence naming a missing or weak requirement from the JD and why it matters for this role>"
+    "<4-6 items. Each is ONE full sentence naming a missing or weak requirement from the JD and why it matters for this role>"
   ],
-  "verdict": "<One decisive hiring sentence: advance to interview, hold for review, or pass — with the single strongest reason>",
+  "verdict": "<One decisive hiring sentence aligned with matchScore — advance to interview, hold for review, or pass>",
   "recommendations": [
-    "<3-5 actionable next steps for the hiring manager — e.g. interview focus areas, skills to probe, red flags to verify, or why to pass>"
+    "<3-5 actionable next steps for the hiring manager — interview focus areas, skills to probe, red flags to verify, or why to pass>"
   ]
 }
 
+Scoring rubric (apply strictly — do not inflate):
+- 85-100: Exceeds requirements — strong overlap on must-haves, seniority aligned, relevant domain experience
+- 70-84: Good fit — meets most must-haves; minor gaps in nice-to-haves or depth
+- 50-69: Partial fit — meaningful gaps in must-have skills, experience level, or domain
+- 30-49: Weak fit — missing multiple must-haves or clear seniority mismatch (e.g. junior resume for senior role)
+- 0-29: Poor fit — wrong role type, domain, or seniority; most core requirements absent
+
+Scoring weights:
+1. Must-have skills & technologies explicitly stated in the JD (~50%)
+2. Years of experience & seniority level vs JD (~25%)
+3. Domain/industry relevance (~15%)
+4. Nice-to-have / preferred qualifications (~10%)
+
 Rules:
-- Never output single keywords or comma-separated word lists. Every strength, gap, and recommendation must be a complete sentence.
-- Be specific: reference actual technologies, years, titles, or accomplishments from the resume.
-- Be honest: low scores are fine when the fit is genuinely poor.
-- Ignore filler words, company locations, and generic adjectives unless they are explicit job requirements.
-- Score must reflect actual overlap between resume and job description requirements — not resume quality alone.
-- Do not invent job requirements that are not stated in the job description.
-- If the job description is not a legitimate role posting (URLs, hostnames, placeholders, single words, nonsense, or test input), set matchScore between 0 and 15, explain the JD is invalid in summary, and recommend pasting a real job description.`;
+- First infer must-haves vs nice-to-haves from the JD, then score against must-haves primarily.
+- Never output keywords or comma-separated lists — every item must be a complete sentence.
+- Be specific: quote or paraphrase actual resume content (titles, tools, years, projects).
+- Be honest: a weak resume for a strong JD should score 30 or below.
+- Do not invent JD requirements not stated in the job description.
+- verdict MUST match matchScore band (≥70 → interview-worthy; 50-69 → hold/review; <50 → pass or strong hesitation).
+- Ignore filler (company culture fluff, locations) unless explicitly required.
+- If the JD is invalid (URL, hostname, placeholder, nonsense, test input), set matchScore 0-15, explain in summary, and recommend pasting a real JD.`;
 
 const TECH_SKILLS = [
   "javascript", "typescript", "python", "java", "react", "next.js", "nextjs", "node.js", "nodejs",
@@ -85,44 +100,59 @@ function extractYears(text: string): string | null {
   return match ? `${match[1]}+ years experience` : null;
 }
 
-function normalizeResult(raw: Partial<AIAnalysisResult>): AIAnalysisResult {
-  const score = Math.min(100, Math.max(0, Math.round(Number(raw.matchScore) || 0)));
+function dedupeSentences(items: string[]): string[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.toLowerCase().replace(/\s+/g, " ").slice(0, 72);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
-  const strengths = (raw.strengths ?? [])
-    .map((s) => s.trim())
-    .filter((s) => s.length > 20);
+function buildVerdictFromScore(score: number): string {
+  if (score >= 85) {
+    return "Strong fit — advance to interview; the candidate meets or exceeds most core requirements.";
+  }
+  if (score >= 70) {
+    return "Good fit — proceed to interview while validating the gaps listed below.";
+  }
+  if (score >= 50) {
+    return "Borderline fit — hold for manual review or a brief screening call before committing interview time.";
+  }
+  if (score >= 30) {
+    return "Weak fit — significant must-have gaps; pass unless the hiring bar is intentionally lowered.";
+  }
+  return "Poor fit — resume does not align with this role's seniority, skills, or domain; recommend pass.";
+}
 
-  const gaps = (raw.gaps ?? [])
-    .map((s) => s.trim())
-    .filter((s) => s.length > 20);
+function verdictConflictsWithScore(score: number, verdict: string): boolean {
+  const v = verdict.toLowerCase();
+  const suggestsAdvance =
+    /advance|schedule.{0,20}interview|proceed.{0,20}interview|strong fit|move forward|worth interview|recommend hiring/.test(
+      v
+    );
+  const suggestsPass =
+    /pass on|do not advance|reject|not a fit|poor fit|decline|not recommend|skip this candidate/.test(v);
 
-  const recommendations = (raw.recommendations ?? [])
-    .map((s) => s.trim())
-    .filter((s) => s.length > 15);
-
-  return {
-    matchScore: score,
-    summary: raw.summary?.trim() || "Analysis complete. Review strengths and gaps below.",
-    strengths: strengths.length > 0 ? strengths : ["Resume shows relevant background but lacks specific detail in the analysis."],
-    gaps: gaps.length > 0 ? gaps : ["Unable to identify specific gaps — manual review recommended."],
-    verdict: raw.verdict?.trim() || (score >= 70 ? "Advance to interview." : score >= 40 ? "Hold for manual review." : "Pass on this candidate."),
-    recommendations: recommendations.length > 0 ? recommendations : buildDefaultRecommendations(score),
-  };
+  if (score >= 70 && suggestsPass) return true;
+  if (score < 50 && suggestsAdvance) return true;
+  return false;
 }
 
 function buildDefaultRecommendations(score: number): string[] {
   if (score >= 70) {
     return [
       "Schedule a technical screen focused on the strongest matching skills.",
-      "Verify depth on the top 2-3 strengths listed — ask for specific project examples.",
-      "Confirm availability and salary expectations align before advancing.",
+      "Verify depth on the top 2-3 strengths — ask for specific project examples and ownership.",
+      "Confirm availability, notice period, and compensation expectations before advancing.",
     ];
   }
   if (score >= 40) {
     return [
       "Conduct a brief phone screen to clarify ambiguous areas before investing interview time.",
-      "Ask directly about each gap listed — some may be present but not stated on the resume.",
-      "Compare against other candidates before making a final decision.",
+      "Ask directly about each gap listed — some skills may be present but not stated on the resume.",
+      "Compare against other candidates in the pipeline before making a final decision.",
     ];
   }
   return [
@@ -132,6 +162,45 @@ function buildDefaultRecommendations(score: number): string[] {
   ];
 }
 
+function normalizeResult(raw: Partial<AIAnalysisResult>): AIAnalysisResult {
+  const score = Math.min(100, Math.max(0, Math.round(Number(raw.matchScore) || 0)));
+
+  const strengths = dedupeSentences(
+    (raw.strengths ?? []).map((s) => s.trim()).filter((s) => s.length > 20)
+  ).slice(0, 6);
+
+  const gaps = dedupeSentences(
+    (raw.gaps ?? []).map((s) => s.trim()).filter((s) => s.length > 20)
+  ).slice(0, 6);
+
+  const recommendations = dedupeSentences(
+    (raw.recommendations ?? []).map((s) => s.trim()).filter((s) => s.length > 15)
+  ).slice(0, 5);
+
+  let verdict = raw.verdict?.trim() || buildVerdictFromScore(score);
+  if (verdictConflictsWithScore(score, verdict)) {
+    verdict = buildVerdictFromScore(score);
+  }
+
+  return {
+    matchScore: score,
+    summary: raw.summary?.trim() || "Analysis complete. Review strengths and gaps below.",
+    strengths:
+      strengths.length > 0
+        ? strengths
+        : ["Resume shows relevant background but lacks specific detail matching the job description."],
+    gaps:
+      gaps.length > 0
+        ? gaps
+        : score >= 70
+          ? ["No critical gaps identified — validate depth and seniority in interview."]
+          : ["Unable to identify specific gaps — manual review of the job description is recommended."],
+    verdict,
+    recommendations:
+      recommendations.length > 0 ? recommendations : buildDefaultRecommendations(score),
+  };
+}
+
 function keywordMatch(resume: string, jd: string): AIAnalysisResult {
   const resumeSkills = extractSkills(resume);
   const jdSkills = extractSkills(jd);
@@ -139,35 +208,52 @@ function keywordMatch(resume: string, jd: string): AIAnalysisResult {
   const matched = jdSkills.filter((s) => resumeSkills.includes(s));
   const missed = jdSkills.filter((s) => !resumeSkills.includes(s));
 
-  const score =
+  let score =
     jdSkills.length > 0
       ? Math.round((matched.length / jdSkills.length) * 100)
       : matched.length > 0
         ? 55
         : 30;
 
-  const years = extractYears(resume);
-  const strengths: string[] = [];
+  const resumeYears = extractYears(resume);
+  const jdYears = extractYears(jd);
+  if (resumeYears && jdYears) {
+    const resumeNum = parseInt(resumeYears, 10);
+    const jdNum = parseInt(jdYears, 10);
+    if (resumeNum + 2 < jdNum) score = Math.min(score, 45);
+    if (resumeNum >= jdNum) score = Math.min(100, score + 5);
+  }
 
-  if (years) {
-    strengths.push(`Resume indicates ${years}, which may align with seniority expectations in the job description.`);
+  const strengths: string[] = [];
+  if (resumeYears) {
+    strengths.push(
+      `Resume indicates ${resumeYears}, which may align with seniority expectations in the job description.`
+    );
   }
   for (const skill of matched.slice(0, 5)) {
-    strengths.push(`Demonstrates ${skill} experience, which is explicitly required or preferred in the job description.`);
+    strengths.push(
+      `Demonstrates ${skill} experience, which appears in the job description requirements.`
+    );
   }
   if (strengths.length === 0) {
-    strengths.push("Resume contains general professional experience but few clear matches to the stated technical requirements.");
+    strengths.push(
+      "Resume contains general professional experience but few clear matches to the stated technical requirements."
+    );
   }
 
   const gaps: string[] = [];
   for (const skill of missed.slice(0, 5)) {
-    gaps.push(`No clear evidence of ${skill} on the resume, though the job description calls for it.`);
+    gaps.push(
+      `No clear evidence of ${skill} on the resume, though the job description calls for it.`
+    );
   }
   if (gaps.length === 0 && score < 70) {
-    gaps.push("Resume lacks depth in areas emphasized by the job description — a closer manual read is needed.");
+    gaps.push(
+      "Resume lacks depth in areas emphasized by the job description — a closer manual read is needed."
+    );
   }
 
-  const finalScore = Math.min(score, 100);
+  const finalScore = Math.min(100, Math.max(0, score));
   const summary =
     finalScore >= 60
       ? `Candidate shows overlap on ${matched.length} of ${jdSkills.length} key skills identified in the job description.`
@@ -178,25 +264,33 @@ function keywordMatch(resume: string, jd: string): AIAnalysisResult {
     summary: `Offline estimate — configure OpenRouter for AI analysis. ${summary}`,
     strengths,
     gaps,
-    verdict:
-      finalScore >= 70
-        ? "Potential fit — skill overlap supports moving to a technical screen."
-        : finalScore >= 40
-          ? "Borderline fit — gaps in core skills warrant a clarifying call before interviewing."
-          : "Poor match — resume does not demonstrate the key skills this role requires.",
+    verdict: buildVerdictFromScore(finalScore),
     recommendations: buildDefaultRecommendations(finalScore),
   });
 }
 
 function parseJsonResponse(raw: string): AIAnalysisResult {
-  const jsonStr = raw
+  const cleaned = raw
     .replace(/```json\s*/gi, "")
     .replace(/```\s*$/g, "")
     .trim();
-  return normalizeResult(JSON.parse(jsonStr));
+
+  try {
+    return normalizeResult(JSON.parse(cleaned));
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      return normalizeResult(JSON.parse(cleaned.slice(start, end + 1)));
+    }
+    throw new Error("AI returned invalid JSON");
+  }
 }
 
-async function callOpenRouter(resumeText: string, jobDescription: string): Promise<AIAnalysisResult> {
+async function callOpenRouter(
+  resumeText: string,
+  jobDescription: string
+): Promise<AIAnalysisResult> {
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ??
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
@@ -205,7 +299,7 @@ async function callOpenRouter(resumeText: string, jobDescription: string): Promi
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "HTTP-Referer": siteUrl,
       "X-Title": "ResuMatch",
     },
@@ -215,20 +309,27 @@ async function callOpenRouter(resumeText: string, jobDescription: string): Promi
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: `=== JOB DESCRIPTION ===
+          content: `Analyze this candidate against the job description.
+
+Step 1: Identify must-have vs nice-to-have requirements from the JD.
+Step 2: Compare resume evidence against must-haves (skills, seniority, domain).
+Step 3: Assign matchScore using the rubric — penalize seniority mismatch and missing must-haves.
+Step 4: Write strengths, gaps, verdict, and recommendations as complete sentences.
+
+=== JOB DESCRIPTION ===
 ${jobDescription}
 
 === RESUME ===
 ${resumeText}
 
-Analyze and return JSON only.`,
+Return JSON only.`,
         },
       ],
-      temperature: 0.2,
-      max_tokens: 2048,
+      temperature: 0.15,
+      max_tokens: 2500,
       response_format: { type: "json_object" },
     }),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(45000),
   });
 
   if (!response.ok) {
