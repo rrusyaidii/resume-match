@@ -5,6 +5,7 @@ import type { AIAnalysisResult } from "@/lib/ai-client";
 import { ScoreGauge } from "./score-gauge";
 import { InsightList, RecommendationsList } from "./insight-list";
 import { getTierMeta } from "./results-utils";
+import { RubricBreakdown } from "./rubric-breakdown";
 
 interface ResultsPanelProps {
   result: AIAnalysisResult;
@@ -107,6 +108,12 @@ export function ResultsPanel({ result, resumeFileName, jobDescription, onReset }
             </p>
           </div>
         </div>
+
+        <RubricBreakdown
+          dimensions={result.dimensions}
+          decision={result.decision}
+          gateFlags={result.gateFlags}
+        />
 
         <div className="grid gap-8 border-b border-border px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-2 lg:px-10 lg:py-10">
           <InsightList title="Key strengths" items={result.strengths} variant="strengths" />

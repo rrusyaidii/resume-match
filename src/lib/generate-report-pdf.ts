@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import type { AIAnalysisResult } from "@/lib/ai-client";
 import { getTierMeta } from "@/components/results-utils";
+import { RUBRIC_DIMENSIONS } from "@/lib/evaluation-rubric";
 
 export interface ReportPdfOptions {
   resumeFileName?: string;
@@ -198,6 +199,31 @@ class PdfWriter {
     this.y += 3;
   }
 
+  rubricDimension(label: string, score: number, weight: number, note: string) {
+    this.ensureSpace(14);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(9);
+    this.doc.setTextColor(...COLORS.ink);
+    this.doc.text(`${label} — ${score}/100 (${weight}%)`, MARGIN, this.y);
+    this.y += 5;
+
+    const barWidth = CONTENT_WIDTH;
+    const barHeight = 2.5;
+    this.doc.setFillColor(...COLORS.border);
+    this.doc.roundedRect(MARGIN, this.y, barWidth, barHeight, 1, 1, "F");
+
+    const fillColor =
+      score >= 70 ? COLORS.match : score >= 40 ? COLORS.caution : COLORS.gap;
+    if (score > 0) {
+      this.doc.setFillColor(...fillColor);
+      this.doc.roundedRect(MARGIN, this.y, (barWidth * score) / 100, barHeight, 1, 1, "F");
+    }
+    this.y += barHeight + 4;
+
+    this.mutedParagraph(note, 8);
+    this.y += 2;
+  }
+
   numberedList(items: string[], fontSize = 10) {
     this.doc.setFont("helvetica", "normal");
     items.forEach((item, i) => {
@@ -281,6 +307,19 @@ export function downloadAnalysisReport(
 
   writer.heading("HIRING VERDICT");
   writer.boldParagraph(result.verdict);
+
+  if (result.dimensions.length > 0) {
+    writer.heading("SCORING RUBRIC");
+    writer.boldParagraph(`Decision: ${result.decision}`);
+    if (result.gateFlags && result.gateFlags.length > 0) {
+      writer.mutedParagraph(`Compliance flags: ${result.gateFlags.join("; ")}`);
+    }
+    for (const dim of result.dimensions) {
+      const weight = RUBRIC_DIMENSIONS.find((d) => d.id === dim.id)?.weight ?? 0;
+      writer.rubricDimension(dim.label, dim.score, weight, dim.note);
+    }
+    writer.divider();
+  }
 
   writer.heading("KEY STRENGTHS");
   writer.numberedList(result.strengths);

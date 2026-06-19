@@ -1,3 +1,16 @@
+import {
+  applyComplianceGates,
+  buildDefaultRecommendations,
+  buildRubricSystemPrompt,
+  buildRubricUserPrompt,
+  buildVerdictFromDecision,
+  computeWeightedScore,
+  getDecisionFromScore,
+  normalizeDimensions,
+  verdictConflictsWithDecision,
+  type RubricDimensionScore,
+} from "@/lib/evaluation-rubric";
+
 export interface AIAnalysisResult {
   matchScore: number;
   summary: string;
@@ -5,51 +18,12 @@ export interface AIAnalysisResult {
   gaps: string[];
   verdict: string;
   recommendations: string[];
+  dimensions: RubricDimensionScore[];
+  decision: string;
+  gateFlags?: string[];
 }
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
-
-const SYSTEM_PROMPT = `You are a senior technical recruiter with 15 years of experience screening candidates for software and engineering roles.
-
-Analyze how well the resume matches the job description. Return ONLY valid JSON — no markdown, no commentary.
-
-{
-  "matchScore": <integer 0-100>,
-  "summary": "<2-3 sentences: overall fit, seniority alignment, and the single biggest factor driving the score>",
-  "strengths": [
-    "<4-6 items. Each is ONE full sentence citing specific evidence from the resume — skills, years, titles, projects, or metrics that match the JD>"
-  ],
-  "gaps": [
-    "<4-6 items. Each is ONE full sentence naming a missing or weak requirement from the JD and why it matters for this role>"
-  ],
-  "verdict": "<One decisive hiring sentence aligned with matchScore — advance to interview, hold for review, or pass>",
-  "recommendations": [
-    "<3-5 actionable next steps for the hiring manager — interview focus areas, skills to probe, red flags to verify, or why to pass>"
-  ]
-}
-
-Scoring rubric (apply strictly — do not inflate):
-- 85-100: Exceeds requirements — strong overlap on must-haves, seniority aligned, relevant domain experience
-- 70-84: Good fit — meets most must-haves; minor gaps in nice-to-haves or depth
-- 50-69: Partial fit — meaningful gaps in must-have skills, experience level, or domain
-- 30-49: Weak fit — missing multiple must-haves or clear seniority mismatch (e.g. junior resume for senior role)
-- 0-29: Poor fit — wrong role type, domain, or seniority; most core requirements absent
-
-Scoring weights:
-1. Must-have skills & technologies explicitly stated in the JD (~50%)
-2. Years of experience & seniority level vs JD (~25%)
-3. Domain/industry relevance (~15%)
-4. Nice-to-have / preferred qualifications (~10%)
-
-Rules:
-- First infer must-haves vs nice-to-haves from the JD, then score against must-haves primarily.
-- Never output keywords or comma-separated lists — every item must be a complete sentence.
-- Be specific: quote or paraphrase actual resume content (titles, tools, years, projects).
-- Be honest: a weak resume for a strong JD should score 30 or below.
-- Do not invent JD requirements not stated in the job description.
-- verdict MUST match matchScore band (≥70 → interview-worthy; 50-69 → hold/review; <50 → pass or strong hesitation).
-- Ignore filler (company culture fluff, locations) unless explicitly required.
-- If the JD is invalid (URL, hostname, placeholder, nonsense, test input), set matchScore 0-15, explain in summary, and recommend pasting a real JD.`;
 
 const TECH_SKILLS = [
   "javascript", "typescript", "python", "java", "react", "next.js", "nextjs", "node.js", "nodejs",
@@ -71,6 +45,18 @@ const STOP_WORDS = new Set([
   "team", "work", "working", "experience", "years", "year", "company", "based", "looking",
   "join", "fast", "growing", "software", "development", "across", "building", "location",
 ]);
+
+interface RawAnalysisResult {
+  matchScore?: number;
+  summary?: string;
+  strengths?: string[];
+  gaps?: string[];
+  verdict?: string;
+  recommendations?: string[];
+  dimensions?: Partial<RubricDimensionScore>[];
+  gateFlags?: string[];
+  decision?: string;
+}
 
 function extractSkills(text: string): string[] {
   const lower = text.toLowerCase();
@@ -95,9 +81,9 @@ function extractSkills(text: string): string[] {
   return [...found];
 }
 
-function extractYears(text: string): string | null {
+function extractYears(text: string): number | null {
   const match = text.match(/(\d+)\+?\s*(?:years?|yrs?)\s+(?:of\s+)?(?:experience|exp)/i);
-  return match ? `${match[1]}+ years experience` : null;
+  return match ? parseInt(match[1], 10) : null;
 }
 
 function dedupeSentences(items: string[]): string[] {
@@ -110,60 +96,22 @@ function dedupeSentences(items: string[]): string[] {
   });
 }
 
-function buildVerdictFromScore(score: number): string {
-  if (score >= 85) {
-    return "Strong fit — advance to interview; the candidate meets or exceeds most core requirements.";
-  }
-  if (score >= 70) {
-    return "Good fit — proceed to interview while validating the gaps listed below.";
-  }
-  if (score >= 50) {
-    return "Borderline fit — hold for manual review or a brief screening call before committing interview time.";
-  }
-  if (score >= 30) {
-    return "Weak fit — significant must-have gaps; pass unless the hiring bar is intentionally lowered.";
-  }
-  return "Poor fit — resume does not align with this role's seniority, skills, or domain; recommend pass.";
-}
+function normalizeResult(raw: RawAnalysisResult): AIAnalysisResult {
+  const dimensions = normalizeDimensions(raw.dimensions ?? []);
+  const gateFlags = Array.isArray(raw.gateFlags)
+    ? raw.gateFlags.map((f) => String(f).trim()).filter(Boolean)
+    : [];
 
-function verdictConflictsWithScore(score: number, verdict: string): boolean {
-  const v = verdict.toLowerCase();
-  const suggestsAdvance =
-    /advance|schedule.{0,20}interview|proceed.{0,20}interview|strong fit|move forward|worth interview|recommend hiring/.test(
-      v
-    );
-  const suggestsPass =
-    /pass on|do not advance|reject|not a fit|poor fit|decline|not recommend|skip this candidate/.test(v);
-
-  if (score >= 70 && suggestsPass) return true;
-  if (score < 50 && suggestsAdvance) return true;
-  return false;
-}
-
-function buildDefaultRecommendations(score: number): string[] {
-  if (score >= 70) {
-    return [
-      "Schedule a technical screen focused on the strongest matching skills.",
-      "Verify depth on the top 2-3 strengths — ask for specific project examples and ownership.",
-      "Confirm availability, notice period, and compensation expectations before advancing.",
-    ];
+  let score: number;
+  if (raw.dimensions && raw.dimensions.length > 0) {
+    const weighted = computeWeightedScore(dimensions);
+    const gated = applyComplianceGates(weighted, gateFlags);
+    score = gated.score;
+  } else {
+    score = Math.min(100, Math.max(0, Math.round(Number(raw.matchScore) || 0)));
   }
-  if (score >= 40) {
-    return [
-      "Conduct a brief phone screen to clarify ambiguous areas before investing interview time.",
-      "Ask directly about each gap listed — some skills may be present but not stated on the resume.",
-      "Compare against other candidates in the pipeline before making a final decision.",
-    ];
-  }
-  return [
-    "Do not advance unless the hiring bar is intentionally lowered for this role.",
-    "If keeping in pipeline, request a revised resume highlighting missing requirements.",
-    "Document the pass reason for compliance and future reference.",
-  ];
-}
 
-function normalizeResult(raw: Partial<AIAnalysisResult>): AIAnalysisResult {
-  const score = Math.min(100, Math.max(0, Math.round(Number(raw.matchScore) || 0)));
+  const decision = getDecisionFromScore(score);
 
   const strengths = dedupeSentences(
     (raw.strengths ?? []).map((s) => s.trim()).filter((s) => s.length > 20)
@@ -177,9 +125,9 @@ function normalizeResult(raw: Partial<AIAnalysisResult>): AIAnalysisResult {
     (raw.recommendations ?? []).map((s) => s.trim()).filter((s) => s.length > 15)
   ).slice(0, 5);
 
-  let verdict = raw.verdict?.trim() || buildVerdictFromScore(score);
-  if (verdictConflictsWithScore(score, verdict)) {
-    verdict = buildVerdictFromScore(score);
+  let verdict = raw.verdict?.trim() || buildVerdictFromDecision(decision);
+  if (verdictConflictsWithDecision(score, verdict)) {
+    verdict = buildVerdictFromDecision(decision);
   }
 
   return {
@@ -198,6 +146,103 @@ function normalizeResult(raw: Partial<AIAnalysisResult>): AIAnalysisResult {
     verdict,
     recommendations:
       recommendations.length > 0 ? recommendations : buildDefaultRecommendations(score),
+    dimensions,
+    decision: decision.label,
+    gateFlags: gateFlags.length > 0 ? gateFlags : undefined,
+  };
+}
+
+function buildOfflineDimensions(
+  resume: string,
+  jd: string,
+  skillScore: number,
+  matched: string[],
+  missed: string[]
+): { dimensions: RubricDimensionScore[]; gateFlags: string[] } {
+  const gateFlags: string[] = [];
+  const resumeYears = extractYears(resume);
+  const jdYears = extractYears(jd);
+
+  let seniorityScore = 50;
+  if (resumeYears !== null && jdYears !== null) {
+    if (resumeYears + 2 < jdYears) {
+      seniorityScore = 35;
+      gateFlags.push(`Seniority mismatch: ~${resumeYears}yr resume vs ~${jdYears}yr JD requirement`);
+    } else if (resumeYears >= jdYears) {
+      seniorityScore = 75;
+    } else {
+      seniorityScore = 55;
+    }
+  } else if (resumeYears !== null) {
+    seniorityScore = 60;
+  }
+
+  if (missed.length > 0 && matched.length === 0) {
+    gateFlags.push(`Missing must-have: ${missed.slice(0, 3).join(", ")}`);
+  } else if (missed.length > matched.length) {
+    gateFlags.push(`Missing must-have: ${missed[0]}`);
+  }
+
+  const hasDeliverySignals =
+    /agile|scrum|ci\/cd|deploy|deliver|shipped|production|sprint/i.test(resume);
+  const projectScore = hasDeliverySignals
+    ? Math.min(70, skillScore + 10)
+    : Math.max(30, skillScore - 10);
+
+  const domainKeywords = ["bank", "fintech", "e-commerce", "ecommerce", "saas", "gov", "insurance"];
+  const jdDomain = domainKeywords.some((k) => jd.toLowerCase().includes(k));
+  const resumeDomain = domainKeywords.some((k) => resume.toLowerCase().includes(k));
+  const domainScore = jdDomain ? (resumeDomain ? 70 : 35) : 55;
+
+  const hasDegree = /bachelor|master|degree|diploma|b\.?sc|m\.?sc|computer science|information technology/i.test(
+    resume
+  );
+  const jdRequiresDegree = /degree|bachelor|diploma|b\.?sc|qualification/i.test(jd);
+  const qualScore = jdRequiresDegree ? (hasDegree ? 75 : 40) : hasDegree ? 65 : 50;
+
+  return {
+    dimensions: normalizeDimensions([
+      {
+        id: "technical_stack",
+        score: skillScore,
+        note:
+          matched.length > 0
+            ? `Resume shows ${matched.length} of ${matched.length + missed.length} key skills from the JD.`
+            : "Limited overlap with technical requirements stated in the job description.",
+      },
+      {
+        id: "seniority_experience",
+        score: seniorityScore,
+        note:
+          resumeYears !== null
+            ? `Resume indicates approximately ${resumeYears} years of experience.`
+            : "Seniority level is unclear from the resume.",
+      },
+      {
+        id: "project_delivery",
+        score: projectScore,
+        note: hasDeliverySignals
+          ? "Resume mentions delivery practices such as agile, CI/CD, or production deployments."
+          : "Limited evidence of project delivery or shipping experience on the resume.",
+      },
+      {
+        id: "domain_industry",
+        score: domainScore,
+        note: jdDomain
+          ? resumeDomain
+            ? "Resume shows experience in a domain relevant to the job description."
+            : "Job description implies domain experience not clearly shown on the resume."
+          : "No specific industry domain requirement identified in the job description.",
+      },
+      {
+        id: "qualifications_extras",
+        score: qualScore,
+        note: hasDegree
+          ? "Resume lists a relevant degree or qualification."
+          : "Qualifications section is limited or not clearly stated on the resume.",
+      },
+    ]),
+    gateFlags,
   };
 }
 
@@ -208,26 +253,20 @@ function keywordMatch(resume: string, jd: string): AIAnalysisResult {
   const matched = jdSkills.filter((s) => resumeSkills.includes(s));
   const missed = jdSkills.filter((s) => !resumeSkills.includes(s));
 
-  let score =
+  const skillScore =
     jdSkills.length > 0
       ? Math.round((matched.length / jdSkills.length) * 100)
       : matched.length > 0
         ? 55
         : 30;
 
-  const resumeYears = extractYears(resume);
-  const jdYears = extractYears(jd);
-  if (resumeYears && jdYears) {
-    const resumeNum = parseInt(resumeYears, 10);
-    const jdNum = parseInt(jdYears, 10);
-    if (resumeNum + 2 < jdNum) score = Math.min(score, 45);
-    if (resumeNum >= jdNum) score = Math.min(100, score + 5);
-  }
+  const { dimensions, gateFlags } = buildOfflineDimensions(resume, jd, skillScore, matched, missed);
 
   const strengths: string[] = [];
-  if (resumeYears) {
+  const resumeYears = extractYears(resume);
+  if (resumeYears !== null) {
     strengths.push(
-      `Resume indicates ${resumeYears}, which may align with seniority expectations in the job description.`
+      `Resume indicates approximately ${resumeYears} years of experience, which may align with seniority expectations in the job description.`
     );
   }
   for (const skill of matched.slice(0, 5)) {
@@ -247,24 +286,21 @@ function keywordMatch(resume: string, jd: string): AIAnalysisResult {
       `No clear evidence of ${skill} on the resume, though the job description calls for it.`
     );
   }
-  if (gaps.length === 0 && score < 70) {
-    gaps.push(
-      "Resume lacks depth in areas emphasized by the job description — a closer manual read is needed."
-    );
-  }
 
-  const finalScore = Math.min(100, Math.max(0, score));
+  const weighted = computeWeightedScore(dimensions);
+  const { score: finalScore } = applyComplianceGates(weighted, gateFlags);
+
   const summary =
     finalScore >= 60
       ? `Candidate shows overlap on ${matched.length} of ${jdSkills.length} key skills identified in the job description.`
       : `Limited skill overlap — only ${matched.length} of ${jdSkills.length} required skills appear on the resume.`;
 
   return normalizeResult({
-    matchScore: finalScore,
+    dimensions,
+    gateFlags,
     summary: `Offline estimate — configure OpenRouter for AI analysis. ${summary}`,
     strengths,
     gaps,
-    verdict: buildVerdictFromScore(finalScore),
     recommendations: buildDefaultRecommendations(finalScore),
   });
 }
@@ -306,27 +342,14 @@ async function callOpenRouter(
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: buildRubricSystemPrompt() },
         {
           role: "user",
-          content: `Analyze this candidate against the job description.
-
-Step 1: Identify must-have vs nice-to-have requirements from the JD.
-Step 2: Compare resume evidence against must-haves (skills, seniority, domain).
-Step 3: Assign matchScore using the rubric — penalize seniority mismatch and missing must-haves.
-Step 4: Write strengths, gaps, verdict, and recommendations as complete sentences.
-
-=== JOB DESCRIPTION ===
-${jobDescription}
-
-=== RESUME ===
-${resumeText}
-
-Return JSON only.`,
+          content: buildRubricUserPrompt(resumeText, jobDescription),
         },
       ],
       temperature: 0.15,
-      max_tokens: 2500,
+      max_tokens: 3000,
       response_format: { type: "json_object" },
     }),
     signal: AbortSignal.timeout(45000),

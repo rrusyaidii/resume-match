@@ -1,40 +1,41 @@
+import { getDecisionFromScore } from "@/lib/evaluation-rubric";
+
 export type ScoreTier = "strong" | "partial" | "weak";
 
 export function getScoreTier(score: number): ScoreTier {
-  if (score >= 70) return "strong";
-  if (score >= 40) return "partial";
-  return "weak";
+  return getDecisionFromScore(score).tier;
 }
 
 export function getTierMeta(score: number) {
-  const tier = getScoreTier(score);
-  switch (tier) {
-    case "strong":
-      return {
-        tier,
-        label: "Strong match",
-        headline: "Worth interviewing",
-        color: "var(--match)",
-        bg: "var(--match-bg)",
-        border: "var(--match-border)",
-      };
-    case "partial":
-      return {
-        tier,
-        label: "Partial match",
-        headline: "Review before deciding",
-        color: "var(--caution)",
-        bg: "var(--caution-bg)",
-        border: "var(--caution-border)",
-      };
-    default:
-      return {
-        tier,
-        label: "Poor match",
-        headline: "Likely not a fit",
-        color: "var(--gap)",
-        bg: "var(--gap-bg)",
-        border: "var(--gap-border)",
-      };
-  }
+  const decision = getDecisionFromScore(score);
+  const tier = decision.tier;
+
+  const color =
+    tier === "strong"
+      ? "var(--match)"
+      : tier === "partial"
+        ? "var(--caution)"
+        : "var(--gap)";
+  const bg =
+    tier === "strong"
+      ? "var(--match-bg)"
+      : tier === "partial"
+        ? "var(--caution-bg)"
+        : "var(--gap-bg)";
+  const border =
+    tier === "strong"
+      ? "var(--match-border)"
+      : tier === "partial"
+        ? "var(--caution-border)"
+        : "var(--gap-border)";
+
+  return {
+    tier,
+    label: decision.label,
+    headline: decision.headline,
+    action: decision.action,
+    color,
+    bg,
+    border,
+  };
 }
