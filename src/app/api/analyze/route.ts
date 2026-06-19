@@ -9,6 +9,8 @@ import {
 import { FREE_ANALYSIS_LIMIT } from "@/lib/constants";
 import { validateJobDescription } from "@/lib/validate-job-description";
 
+export const runtime = "nodejs";
+
 interface AnalyzeResponse {
   success: boolean;
   data?: AIAnalysisResult;

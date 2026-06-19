@@ -1,48 +1,31 @@
+import { PDFParse } from "pdf-parse";
 import { MAX_PDF_PAGES } from "./constants";
 
 /**
- * Extract text from a PDF file buffer using pdfjs-dist legacy build.
- * Uses pathToFileURL for reliable worker URL resolution on Windows.
+ * Extract text from a PDF buffer using pdf-parse (Node-friendly, works on Vercel).
  */
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  const parser = new PDFParse({ data: buffer, useSystemFonts: true });
+
   try {
-    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-
-    // Use Node.js URL to create proper file:// URL (handles Windows paths)
-    const { pathToFileURL } = await import("url");
-    const workerPath = process.cwd() +
-      "/node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs";
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
-
-    const doc = await pdfjsLib.getDocument({
-      data: new Uint8Array(buffer),
-      useSystemFonts: false,
-    }).promise;
-
-    if (doc.numPages > MAX_PDF_PAGES) {
-      doc.destroy();
+    const info = await parser.getInfo();
+    if (info.total > MAX_PDF_PAGES) {
       throw new Error(
-        `PDF has too many pages (${doc.numPages}). Maximum is ${MAX_PDF_PAGES}.`
+        `PDF has too many pages (${info.total}). Maximum is ${MAX_PDF_PAGES}.`
       );
     }
 
-    const pages: string[] = [];
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      const text = content.items
-        .filter((item: any) => "str" in item)
-        .map((item: any) => item.str)
-        .join(" ");
-      pages.push(text);
-    }
-
-    doc.destroy();
-    return pages.join("\n\n");
+    const result = await parser.getText({ pageJoiner: "\n\n" });
+    return result.text;
   } catch (error) {
+    if (error instanceof Error && error.message.includes("too many pages")) {
+      throw error;
+    }
     console.error("PDF extraction error:", error);
     throw new Error(
       "Failed to extract text from PDF. Ensure the file is a valid PDF with selectable text."
     );
+  } finally {
+    await parser.destroy();
   }
 }
