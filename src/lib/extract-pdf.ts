@@ -1,22 +1,21 @@
-import { PDFParse } from "pdf-parse";
+import { extractText, getDocumentProxy } from "unpdf";
 import { MAX_PDF_PAGES } from "./constants";
 
 /**
- * Extract text from a PDF buffer using pdf-parse (Node-friendly, works on Vercel).
+ * Extract text from a PDF buffer using unpdf (serverless-safe on Vercel).
  */
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  const parser = new PDFParse({ data: buffer, useSystemFonts: true });
-
   try {
-    const info = await parser.getInfo();
-    if (info.total > MAX_PDF_PAGES) {
+    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    const { totalPages, text } = await extractText(pdf, { mergePages: true });
+
+    if (totalPages > MAX_PDF_PAGES) {
       throw new Error(
-        `PDF has too many pages (${info.total}). Maximum is ${MAX_PDF_PAGES}.`
+        `PDF has too many pages (${totalPages}). Maximum is ${MAX_PDF_PAGES}.`
       );
     }
 
-    const result = await parser.getText({ pageJoiner: "\n\n" });
-    return result.text;
+    return text;
   } catch (error) {
     if (error instanceof Error && error.message.includes("too many pages")) {
       throw error;
@@ -25,7 +24,5 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
     throw new Error(
       "Failed to extract text from PDF. Ensure the file is a valid PDF with selectable text."
     );
-  } finally {
-    await parser.destroy();
   }
 }

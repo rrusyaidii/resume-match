@@ -2,7 +2,7 @@
 
 Upload a resume PDF, paste a job description, and get an AI-powered match score with strengths, gaps, and hiring recommendations in seconds.
 
-Built with **Next.js 16**, **OpenRouter**, and **pdfjs-dist**.
+Built with **Next.js 16**, **OpenRouter**, and **unpdf**.
 
 ---
 
@@ -20,7 +20,7 @@ Built with **Next.js 16**, **OpenRouter**, and **pdfjs-dist**.
 | Framework | Next.js 16 (Turbopack) |
 | Language | TypeScript |
 | AI | OpenRouter |
-| PDF | pdfjs-dist (legacy build) |
+| PDF | unpdf |
 | Styling | Tailwind CSS v4 |
 | Access | HMAC-signed cookies |
 
