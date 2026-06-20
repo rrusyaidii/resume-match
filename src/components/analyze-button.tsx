@@ -1,7 +1,11 @@
+import { FREE_ANALYSIS_LIMIT } from "@/lib/constants";
+
 interface AnalyzeButtonProps {
   isAnalyzing: boolean;
   disabled: boolean;
   limitReached?: boolean;
+  remaining?: number;
+  unlocked?: boolean;
 }
 
 function Spinner() {
@@ -13,17 +17,32 @@ function Spinner() {
   );
 }
 
-function helperText(disabled: boolean, isAnalyzing: boolean, limitReached: boolean) {
+function helperText(
+  disabled: boolean,
+  isAnalyzing: boolean,
+  limitReached: boolean,
+  remaining: number | undefined,
+  unlocked: boolean
+) {
   if (limitReached && !isAnalyzing) {
     return "Enter your access code to continue";
   }
   if (disabled && !isAnalyzing) {
     return "Upload a resume and paste the job description to continue";
   }
+  if (!unlocked && remaining !== undefined && remaining > 0) {
+    return `${remaining} of ${FREE_ANALYSIS_LIMIT} free analyses left · Typical time: 5–15 seconds`;
+  }
   return "Typical analysis time: 5–15 seconds";
 }
 
-export function AnalyzeButton({ isAnalyzing, disabled, limitReached = false }: AnalyzeButtonProps) {
+export function AnalyzeButton({
+  isAnalyzing,
+  disabled,
+  limitReached = false,
+  remaining,
+  unlocked = false,
+}: AnalyzeButtonProps) {
   const isInactive = disabled || isAnalyzing;
 
   return (
@@ -53,7 +72,7 @@ export function AnalyzeButton({ isAnalyzing, disabled, limitReached = false }: A
         )}
       </button>
       <p className="mt-2.5 text-center text-xs text-muted px-1 break-words">
-        {helperText(disabled, isAnalyzing, limitReached)}
+        {helperText(disabled, isAnalyzing, limitReached, remaining, unlocked)}
       </p>
     </div>
   );

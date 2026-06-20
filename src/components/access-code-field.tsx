@@ -1,7 +1,5 @@
 "use client";
 
-import { FREE_ANALYSIS_LIMIT } from "@/lib/constants";
-
 interface AccessCodeFieldProps {
   remaining: number;
   unlocked: boolean;
@@ -36,10 +34,7 @@ export function AccessCodeField({
   }
 
   return (
-    <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
-      <span className="inline-flex items-center rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-muted">
-        {remaining} of {FREE_ANALYSIS_LIMIT} free runs left
-      </span>
+    <p className="text-center">
       <button
         type="button"
         onClick={onRequestUnlock}
@@ -47,6 +42,6 @@ export function AccessCodeField({
       >
         Have an access code?
       </button>
-    </div>
+    </p>
   );
 }

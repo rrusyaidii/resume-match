@@ -40,7 +40,7 @@ export function JobDescriptionField({ value, onChange }: JobDescriptionFieldProp
         onChange={(e) => onChange(e.target.value)}
         rows={6}
         placeholder="Paste the full job description — include required skills, experience level, and responsibilities for the most accurate analysis..."
-        className="block w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-sm text-ink leading-relaxed placeholder:text-muted/50 focus-ring focus:border-teal resize-y transition-colors sm:min-h-[12rem]"
+        className="block w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-base sm:text-sm text-ink leading-relaxed placeholder:text-muted/50 focus-ring focus:border-teal resize-y transition-colors sm:min-h-[12rem]"
         required
       />
       {!isValid && charCount > 0 && validation.error && (

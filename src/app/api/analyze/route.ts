@@ -6,7 +6,7 @@ import {
   checkAndConsumeAccess,
   cookieOptions,
 } from "@/lib/access-control";
-import { FREE_ANALYSIS_LIMIT } from "@/lib/constants";
+import { FREE_ANALYSIS_LIMIT, SCANNED_PDF_ERROR } from "@/lib/constants";
 import { validateJobDescription } from "@/lib/validate-job-description";
 
 export const runtime = "nodejs";
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json<AnalyzeResponse>(
         {
           success: false,
-          error: "Could not extract any text from the PDF. Ensure it contains selectable text.",
+          error: SCANNED_PDF_ERROR,
         },
         { status: 422 }
       );

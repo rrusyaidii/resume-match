@@ -69,8 +69,20 @@ export function ResultsPanel({ result, resumeFileName, jobDescription, onReset }
             </button>
           </div>
 
-          <div className="relative flex flex-col items-center gap-8 text-center lg:flex-row lg:items-center lg:text-left">
-            <ScoreGauge score={result.matchScore} />
+          <div className="relative flex flex-col items-center gap-6 text-center lg:flex-row lg:items-center lg:text-left">
+            <div className="flex flex-col items-center gap-3">
+              <ScoreGauge score={result.matchScore} />
+              <span
+                className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+                style={{
+                  background: meta.bg,
+                  color: meta.color,
+                  border: `1px solid ${meta.border}`,
+                }}
+              >
+                {result.decision}
+              </span>
+            </div>
 
             <div className="flex-1 min-w-0 space-y-3">
               <p
@@ -135,7 +147,7 @@ export function ResultsPanel({ result, resumeFileName, jobDescription, onReset }
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
-          {isDownloading ? "Generating PDF..." : "Download PDF"}
+          {isDownloading ? "Opening report..." : "View PDF report"}
         </button>
         <button
           type="button"

@@ -13,7 +13,12 @@ import { AccessCodeField } from "@/components/access-code-field";
 import { AccessCodeModal } from "@/components/access-code-modal";
 import { AccessLimitModal } from "@/components/access-limit-modal";
 import { ErrorBanner } from "@/components/error-banner";
+import { AnalyzingOverlay } from "@/components/analyzing-overlay";
 import { ResultsPanel } from "@/components/results-panel";
+import {
+  SAMPLE_JOB_DESCRIPTION,
+  fetchSampleResumeFile,
+} from "@/lib/sample-data";
 
 type Status = "idle" | "analyzing" | "done" | "error";
 
@@ -27,6 +32,7 @@ export default function Home() {
   const [codeModalOpen, setCodeModalOpen] = useState(false);
   const [result, setResult] = useState<AIAnalysisResult | null>(null);
   const [error, setError] = useState("");
+  const [isLoadingSample, setIsLoadingSample] = useState(false);
 
   const canSubmit = !!file && validateJobDescription(jd).valid;
   const isLimitReached = remaining === 0 && !unlocked;
@@ -122,28 +128,60 @@ export default function Home() {
     }
   };
 
+  const handleTrySample = async () => {
+    if (isLoadingSample || status === "analyzing") return;
+    setIsLoadingSample(true);
+    setError("");
+    try {
+      const sampleFile = await fetchSampleResumeFile();
+      setFile(sampleFile);
+      setJd(SAMPLE_JOB_DESCRIPTION);
+      setResult(null);
+      setStatus("idle");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load sample data.");
+      setStatus("error");
+    } finally {
+      setIsLoadingSample(false);
+    }
+  };
+
   return (
     <div className="min-h-dvh bg-paper pb-[env(safe-area-inset-bottom)] flex flex-col">
       <SiteHeader />
 
       <main className="mx-auto max-w-4xl flex-1 w-full px-4 py-8 sm:px-6 sm:py-12">
-        {status !== "done" && <PageHero />}
+        {status !== "done" && status !== "analyzing" && <PageHero />}
 
         {status === "error" && (
           <ErrorBanner message={error} onRetry={reset} />
         )}
 
-        {status !== "done" && (
+        {status === "analyzing" && <AnalyzingOverlay />}
+
+        {status !== "done" && status !== "analyzing" && (
           <form onSubmit={handleSubmit} noValidate>
+            <div className="mb-4 flex justify-center sm:justify-end">
+              <button
+                type="button"
+                onClick={handleTrySample}
+                disabled={isLoadingSample}
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-teal hover:bg-teal/5 hover:border-teal/30 transition-colors focus-ring disabled:opacity-50"
+              >
+                {isLoadingSample ? "Loading sample…" : "Try with sample"}
+              </button>
+            </div>
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8 space-y-8">
               <UploadZone file={file} onFileChange={setFile} />
               <div className="border-t border-border" />
               <JobDescriptionField value={jd} onChange={setJd} />
               <div className="border-t border-border" />
               <AnalyzeButton
-                isAnalyzing={status === "analyzing"}
+                isAnalyzing={false}
                 disabled={!canSubmit}
                 limitReached={isLimitReached}
+                remaining={remaining}
+                unlocked={unlocked}
               />
               <AccessCodeField
                 remaining={remaining}

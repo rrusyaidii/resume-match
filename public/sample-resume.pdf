@@ -1,0 +1,46 @@
+%PDF-1.4
+1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj
+2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj
+3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>endobj
+4 0 obj<< /Length 1742 >>stream
+BT /F1 12 Tf 50 750 Td (John Doe) Tj ET
+BT /F1 10 Tf 50 730 Td (Software Engineer) Tj ET
+BT /F1 10 Tf 50 714 Td (Email: john@example.com | Phone: +1-555-1234) Tj ET
+BT /F1 10 Tf 50 698 Td (SUMMARY) Tj ET
+BT /F1 10 Tf 50 682 Td (Full-stack developer with 5 years experience in React, Node.js, and TypeScript.) Tj ET
+BT /F1 10 Tf 50 666 Td (Built scalable web applications serving 100k+ users.) Tj ET
+BT /F1 10 Tf 50 650 Td (EXPERIENCE) Tj ET
+BT /F1 10 Tf 50 634 Td (Senior Software Engineer | TechCorp | 2022 - Present) Tj ET
+BT /F1 10 Tf 50 618 Td (- Led development of microservices architecture serving 500k+ requests/day) Tj ET
+BT /F1 10 Tf 50 602 Td (- Migrated legacy monolith to React + Node.js stack, reducing latency by 40%) Tj ET
+BT /F1 10 Tf 50 586 Td (- Mentored 3 junior developers) Tj ET
+BT /F1 10 Tf 50 570 Td (Software Engineer | WebStart | 2020 - 2022) Tj ET
+BT /F1 10 Tf 50 554 Td (- Built RESTful APIs using Node.js/Express and PostgreSQL) Tj ET
+BT /F1 10 Tf 50 538 Td (- Implemented CI/CD pipeline reducing deployment time by 60%) Tj ET
+BT /F1 10 Tf 50 522 Td (- Developed real-time dashboard using Socket.io and React) Tj ET
+BT /F1 10 Tf 50 506 Td (SKILLS) Tj ET
+BT /F1 10 Tf 50 490 Td (Languages: TypeScript, JavaScript, Python, SQL) Tj ET
+BT /F1 10 Tf 50 474 Td (Frontend: React, Next.js, Tailwind CSS) Tj ET
+BT /F1 10 Tf 50 458 Td (Backend: Node.js, Express, REST APIs, GraphQL) Tj ET
+BT /F1 10 Tf 50 442 Td (Database: PostgreSQL, MongoDB, Redis) Tj ET
+BT /F1 10 Tf 50 426 Td (DevOps: Docker, AWS \(EC2, S3\), CI/CD, Nginx) Tj ET
+BT /F1 10 Tf 50 410 Td (Tools: Git, Jira, Figma) Tj ET
+BT /F1 10 Tf 50 394 Td (EDUCATION) Tj ET
+BT /F1 10 Tf 50 378 Td (BSc Computer Science | University of Technology | 2016 - 2020) Tj ET
+
+endstream
+endobj
+5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj
+xref
+0 7
+0000000000 65535 f 
+0000000000 00000 n 
+0000000047 00000 n 
+0000000102 00000 n 
+0000000226 00000 n 
+0000000258 00000 n 
+0000000298 00000 n 
+trailer<< /Size 7 /Root 1 0 R >>
+startxref
+2086
+%%EOF
