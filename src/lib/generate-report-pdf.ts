@@ -49,12 +49,6 @@ function tierTint(tier: "strong" | "partial" | "weak"): [number, number, number]
   }
 }
 
-function buildFilename(resumeFileName?: string): string {
-  if (!resumeFileName) return "resumatch-report.pdf";
-  const base = resumeFileName.replace(/\.pdf$/i, "").replace(/[^\w.-]+/g, "-");
-  return `analysis-${base}.pdf`;
-}
-
 class PdfWriter {
   private doc: jsPDF;
   private y: number;
@@ -251,7 +245,7 @@ class PdfWriter {
     this.y += 2;
   }
 
-  save(filename: string) {
+  openInNewTab() {
     const totalPages = this.doc.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       this.doc.setPage(i);
@@ -266,7 +260,20 @@ class PdfWriter {
         align: "right",
       });
     }
-    this.doc.save(filename);
+
+    const blob = this.doc.output("blob");
+    const url = URL.createObjectURL(blob);
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+
+    if (!opened) {
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
+    }
+
+    window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
   }
 }
 
@@ -330,5 +337,5 @@ export function downloadAnalysisReport(
   writer.heading("HIRING RECOMMENDATIONS");
   writer.numberedList(result.recommendations);
 
-  writer.save(buildFilename(options.resumeFileName));
+  writer.openInNewTab();
 }
