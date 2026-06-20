@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Source_Sans_3, Geist_Mono } from "next/font/google";
 import { ServiceWorkerCleanup } from "@/components/service-worker-cleanup";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -63,7 +64,11 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${fraunces.variable} ${sourceSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
         <ServiceWorkerCleanup />
         {children}

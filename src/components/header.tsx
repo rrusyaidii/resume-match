@@ -1,3 +1,5 @@
+import { ThemeToggle } from "@/components/theme-toggle";
+
 export function SiteHeader() {
   return (
     <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
@@ -13,13 +15,16 @@ export function SiteHeader() {
             <p className="text-[11px] text-muted mt-0.5">AI-powered screening</p>
           </div>
         </div>
-        <span className="inline-flex sm:hidden items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-medium text-muted">
-          AI screening
-        </span>
-        <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-[11px] font-medium text-muted">
-          <span className="h-1.5 w-1.5 rounded-full bg-match animate-pulse" />
-          Powered by OpenRouter
-        </span>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <span className="inline-flex sm:hidden items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-medium text-muted">
+            AI screening
+          </span>
+          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-[11px] font-medium text-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-match animate-pulse" />
+            Powered by OpenRouter
+          </span>
+        </div>
       </div>
     </header>
   );
