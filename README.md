@@ -1,17 +1,21 @@
 # ResuMatch — AI Resume Screener
 
-Upload a resume PDF, paste a job description, and get an AI-powered match score with strengths, gaps, and hiring recommendations in seconds.
+Upload one or more resume PDFs, paste a job description, and get AI-powered match scores with strengths, gaps, and hiring recommendations.
 
-Built with **Next.js 16**, **OpenRouter**, and **unpdf**.
+Built with **Next.js 16**, **OpenRouter** (Gemini), and **unpdf**.
 
 ---
 
 ## Features
 
-- **PDF parsing** — Extracts text from resume PDFs (up to 50 pages, 10 MB max)
-- **AI analysis** — Match score, summary, strengths, gaps, verdict, and hiring recommendations
-- **PDF report** — Download a formatted analysis report
-- **Responsive UI** — Mobile-friendly layout with score gauge and insight cards
+- **Single or batch screening** — 1 PDF works as before; add up to 5 to compare scores side-by-side (one JD, ranked by match)
+- **Malaysia tech rubric** — Weighted scores across 5 dimensions plus Shortlist / HM Review / Reject decisions
+- **PDF parsing** — Text extraction via unpdf (50 pages max, 10 MB per file)
+- **Full report** — Strengths, gaps, verdict, recommendations; open PDF report in a new tab
+- **Try with sample** — Pre-loaded resume + job description for a quick demo
+- **Free tier** — 2 free analyses; access code unlocks unlimited use
+- **Light / dark mode** — Toggle in the header; preference saved locally
+- **Responsive UI** — Mobile-friendly forms, results, and comparison grid
 
 ## Stack
 
@@ -19,48 +23,43 @@ Built with **Next.js 16**, **OpenRouter**, and **unpdf**.
 |-------|------|
 | Framework | Next.js 16 (Turbopack) |
 | Language | TypeScript |
-| AI | OpenRouter |
-| PDF | unpdf |
+| AI | OpenRouter · `google/gemini-2.5-flash` |
+| PDF | unpdf · jsPDF (reports) |
 | Styling | Tailwind CSS v4 |
 | Access | HMAC-signed cookies |
 
-## Project Structure
+## Local development
+
+```bash
+npm install
+cp .env.example .env.local   # add your keys
+npm run dev
+```
+
+Required env vars: `OPENROUTER_API_KEY`, `ACCESS_PASSWORD`, `COOKIE_SECRET`
+
+## Project structure
 
 ```
 src/
 ├── app/
 │   ├── api/
+│   │   ├── analyze/          # single resume
+│   │   ├── analyze-batch/    # multi-resume (1 credit per batch)
 │   │   ├── access/
-│   │   ├── analyze/
-│   │   ├── models/
 │   │   └── unlock/
-│   ├── globals.css
-│   ├── layout.tsx
+│   ├── opengraph-image.tsx
 │   └── page.tsx
 ├── components/
-│   ├── access-code-field.tsx
-│   ├── access-code-modal.tsx
-│   ├── access-limit-modal.tsx
-│   ├── access-modal-shell.tsx
-│   ├── access-unlock-form.tsx
-│   ├── analyze-button.tsx
-│   ├── error-banner.tsx
-│   ├── header.tsx
-│   ├── insight-list.tsx
-│   ├── job-description-field.tsx
+│   ├── batch-comparison-panel.tsx
 │   ├── results-panel.tsx
-│   ├── results-utils.ts
-│   ├── score-gauge.tsx
-│   ├── site-footer.tsx
-│   └── upload-zone.tsx
+│   ├── upload-zone.tsx
+│   └── …
 └── lib/
-    ├── access-control.ts
     ├── ai-client.ts
-    ├── constants.ts
+    ├── evaluation-rubric.ts
     ├── extract-pdf.ts
-    ├── generate-report-pdf.ts
-    ├── rate-limit.ts
-    └── validate-job-description.ts
+    └── analyze-resume-file.ts
 ```
 
 ---
