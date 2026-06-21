@@ -2,10 +2,20 @@
 
 import { useEffect, useState } from "react";
 
-const STEPS = [
+const SINGLE_STEPS = [
   { id: 1, label: "Reading PDF…", delayMs: 0 },
   { id: 2, label: "Scoring against job description…", delayMs: 3000 },
 ] as const;
+
+const BATCH_STEPS = [
+  { id: 1, label: "Reading PDFs…", delayMs: 0 },
+  { id: 2, label: "Scoring candidates…", delayMs: 3000 },
+] as const;
+
+interface AnalyzingOverlayProps {
+  batch?: boolean;
+  fileCount?: number;
+}
 
 function Spinner() {
   return (
@@ -32,15 +42,16 @@ function Spinner() {
   );
 }
 
-export function AnalyzingOverlay() {
+export function AnalyzingOverlay({ batch = false, fileCount = 1 }: AnalyzingOverlayProps) {
+  const steps = batch ? BATCH_STEPS : SINGLE_STEPS;
   const [activeStep, setActiveStep] = useState(1);
 
   useEffect(() => {
-    const timers = STEPS.slice(1).map((step) =>
+    const timers = steps.slice(1).map((step) =>
       window.setTimeout(() => setActiveStep(step.id), step.delayMs)
     );
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [steps]);
 
   return (
     <div
@@ -53,14 +64,14 @@ export function AnalyzingOverlay() {
       </div>
 
       <h2 className="font-display text-xl font-semibold text-ink sm:text-2xl mb-2">
-        Analyzing your resume
+        {batch ? `Comparing ${fileCount} resumes` : "Analyzing your resume"}
       </h2>
       <p className="text-sm text-muted mb-8">
-        This usually takes 10–30 seconds
+        {batch ? "This may take a minute for larger batches" : "This usually takes 10–30 seconds"}
       </p>
 
       <ol className="mx-auto max-w-sm space-y-3 text-left">
-        {STEPS.map((step) => {
+        {steps.map((step) => {
           const isActive = activeStep === step.id;
           const isDone = activeStep > step.id;
 

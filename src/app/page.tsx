@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { AIAnalysisResult } from "@/lib/ai-client";
+import type { BatchResultItem } from "@/lib/batch-types";
 import { FREE_ANALYSIS_LIMIT } from "@/lib/constants";
 import { SiteHeader, PageHero } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
@@ -14,6 +15,7 @@ import { AccessCodeModal } from "@/components/access-code-modal";
 import { AccessLimitModal } from "@/components/access-limit-modal";
 import { ErrorBanner } from "@/components/error-banner";
 import { AnalyzingOverlay } from "@/components/analyzing-overlay";
+import { BatchComparisonPanel } from "@/components/batch-comparison-panel";
 import { ResultsPanel } from "@/components/results-panel";
 import {
   SAMPLE_JOB_DESCRIPTION,
@@ -24,18 +26,20 @@ type Status = "idle" | "analyzing" | "done" | "error";
 
 export default function Home() {
   const [status, setStatus] = useState<Status>("idle");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [jd, setJd] = useState("");
   const [remaining, setRemaining] = useState(FREE_ANALYSIS_LIMIT);
   const [unlocked, setUnlocked] = useState(false);
   const [limitModalOpen, setLimitModalOpen] = useState(false);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
   const [result, setResult] = useState<AIAnalysisResult | null>(null);
+  const [batchResults, setBatchResults] = useState<BatchResultItem[] | null>(null);
   const [error, setError] = useState("");
   const [isLoadingSample, setIsLoadingSample] = useState(false);
 
-  const canSubmit = !!file && validateJobDescription(jd).valid;
+  const canSubmit = files.length >= 1 && validateJobDescription(jd).valid;
   const isLimitReached = remaining === 0 && !unlocked;
+  const isBatch = files.length > 1;
 
   useEffect(() => {
     fetch("/api/access")
@@ -54,7 +58,7 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit || !file) return;
+    if (!canSubmit || files.length === 0) return;
 
     if (isLimitReached) {
       setLimitModalOpen(true);
@@ -64,13 +68,18 @@ export default function Home() {
     setStatus("analyzing");
     setError("");
     setResult(null);
+    setBatchResults(null);
 
     const formData = new FormData();
-    formData.append("resume", file);
     formData.append("jobDescription", jd);
+    for (const file of files) {
+      formData.append("resume", file);
+    }
+
+    const endpoint = isBatch ? "/api/analyze-batch" : "/api/analyze";
 
     try {
-      const res = await fetch("/api/analyze", {
+      const res = await fetch(endpoint, {
         method: "POST",
         body: formData,
       });
@@ -99,7 +108,11 @@ export default function Home() {
       if (typeof data.remaining === "number") setRemaining(data.remaining);
       if (typeof data.unlocked === "boolean") setUnlocked(data.unlocked);
 
-      setResult(data.data);
+      if (isBatch) {
+        setBatchResults(data.results ?? []);
+      } else {
+        setResult(data.data);
+      }
       setStatus("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -108,9 +121,10 @@ export default function Home() {
   };
 
   const reset = () => {
-    setFile(null);
+    setFiles([]);
     setJd("");
     setResult(null);
+    setBatchResults(null);
     setError("");
     setStatus("idle");
   };
@@ -134,9 +148,10 @@ export default function Home() {
     setError("");
     try {
       const sampleFile = await fetchSampleResumeFile();
-      setFile(sampleFile);
+      setFiles([sampleFile]);
       setJd(SAMPLE_JOB_DESCRIPTION);
       setResult(null);
+      setBatchResults(null);
       setStatus("idle");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load sample data.");
@@ -157,7 +172,9 @@ export default function Home() {
           <ErrorBanner message={error} onRetry={reset} />
         )}
 
-        {status === "analyzing" && <AnalyzingOverlay />}
+        {status === "analyzing" && (
+          <AnalyzingOverlay batch={isBatch} fileCount={files.length} />
+        )}
 
         {status !== "done" && status !== "analyzing" && (
           <form onSubmit={handleSubmit} noValidate>
@@ -172,7 +189,7 @@ export default function Home() {
               </button>
             </div>
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8 space-y-8">
-              <UploadZone file={file} onFileChange={setFile} />
+              <UploadZone files={files} onFilesChange={setFiles} />
               <div className="border-t border-border" />
               <JobDescriptionField value={jd} onChange={setJd} />
               <div className="border-t border-border" />
@@ -182,6 +199,7 @@ export default function Home() {
                 limitReached={isLimitReached}
                 remaining={remaining}
                 unlocked={unlocked}
+                fileCount={files.length}
               />
               <AccessCodeField
                 remaining={remaining}
@@ -192,10 +210,18 @@ export default function Home() {
           </form>
         )}
 
-        {result && (
+        {result && !isBatch && (
           <ResultsPanel
             result={result}
-            resumeFileName={file?.name}
+            resumeFileName={files[0]?.name}
+            jobDescription={jd}
+            onReset={reset}
+          />
+        )}
+
+        {batchResults && isBatch && (
+          <BatchComparisonPanel
+            results={batchResults}
             jobDescription={jd}
             onReset={reset}
           />

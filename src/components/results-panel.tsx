@@ -12,14 +12,24 @@ interface ResultsPanelProps {
   resumeFileName?: string;
   jobDescription?: string;
   onReset: () => void;
+  showActions?: boolean;
+  scrollOnMount?: boolean;
 }
 
-export function ResultsPanel({ result, resumeFileName, jobDescription, onReset }: ResultsPanelProps) {
+export function ResultsPanel({
+  result,
+  resumeFileName,
+  jobDescription,
+  onReset,
+  showActions = true,
+  scrollOnMount = true,
+}: ResultsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const meta = getTierMeta(result.matchScore);
   const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
+    if (!scrollOnMount) return;
     const el = panelRef.current;
     if (!el) return;
 
@@ -28,7 +38,7 @@ export function ResultsPanel({ result, resumeFileName, jobDescription, onReset }
       behavior: prefersReducedMotion ? "auto" : "smooth",
       block: "start",
     });
-  }, []);
+  }, [scrollOnMount]);
 
   const handleDownloadPdf = async () => {
     if (isDownloading) return;
@@ -60,13 +70,15 @@ export function ResultsPanel({ result, resumeFileName, jobDescription, onReset }
                 Analysis complete
               </span>
             </div>
-            <button
-              type="button"
-              onClick={onReset}
-              className="text-xs font-medium text-teal hover:text-teal/80 transition-colors focus-ring rounded self-start sm:self-auto"
-            >
-              New analysis →
-            </button>
+            {showActions && (
+              <button
+                type="button"
+                onClick={onReset}
+                className="text-xs font-medium text-teal hover:text-teal/80 transition-colors focus-ring rounded self-start sm:self-auto"
+              >
+                New analysis →
+              </button>
+            )}
           </div>
 
           <div className="relative flex flex-col items-center gap-6 text-center lg:flex-row lg:items-center lg:text-left">
@@ -137,27 +149,31 @@ export function ResultsPanel({ result, resumeFileName, jobDescription, onReset }
         </div>
       </article>
 
-      <div className="mt-8 flex flex-col items-center gap-3 pb-[env(safe-area-inset-bottom)] sm:flex-row sm:justify-center sm:gap-4">
-        <button
-          type="button"
-          onClick={handleDownloadPdf}
-          disabled={isDownloading}
-          className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-border bg-card px-8 py-3 text-sm font-semibold text-ink shadow-sm hover:bg-surface disabled:opacity-50 transition-colors focus-ring"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-          </svg>
-          {isDownloading ? "Opening report..." : "View PDF report"}
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          className="w-full sm:w-auto rounded-xl bg-teal px-8 py-3 text-sm font-semibold text-white shadow-md hover:bg-teal/90 transition-colors focus-ring"
-        >
-          Analyze another resume
-        </button>
-      </div>
-      <p className="mt-3 text-center text-xs text-muted">Powered by AI · Results in seconds</p>
+      {showActions && (
+        <>
+          <div className="mt-8 flex flex-col items-center gap-3 pb-[env(safe-area-inset-bottom)] sm:flex-row sm:justify-center sm:gap-4">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+              className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-border bg-card px-8 py-3 text-sm font-semibold text-ink shadow-sm hover:bg-surface disabled:opacity-50 transition-colors focus-ring"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              {isDownloading ? "Opening report..." : "View PDF report"}
+            </button>
+            <button
+              type="button"
+              onClick={onReset}
+              className="w-full sm:w-auto rounded-xl bg-teal px-8 py-3 text-sm font-semibold text-white shadow-md hover:bg-teal/90 transition-colors focus-ring"
+            >
+              Analyze another resume
+            </button>
+          </div>
+          <p className="mt-3 text-center text-xs text-muted">Powered by AI · Results in seconds</p>
+        </>
+      )}
     </div>
   );
 }
