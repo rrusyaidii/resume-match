@@ -2,7 +2,7 @@
 
 Upload one or more resume PDFs, paste a job description, and get AI-powered match scores with strengths, gaps, and hiring recommendations.
 
-Built with **Next.js 16**, **OpenRouter** (Gemini), and **unpdf**.
+Built with **Next.js 16**, **OpenRouter** (GPT-OSS), **Upstash Redis**, and **unpdf**.
 
 ---
 
