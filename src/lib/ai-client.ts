@@ -340,7 +340,7 @@ async function callOpenRouter(
       "X-Title": "ResuMatch",
     },
     body: JSON.stringify({
-      model: "qwen/qwen3-next-80b-a3b-instruct:free",
+      model: "openai/gpt-oss-120b:free",
       messages: [
         { role: "system", content: buildRubricSystemPrompt() },
         {
@@ -377,5 +377,5 @@ export async function analyzeResume(
 }
 
 export function getAvailableModels() {
-  return [{ name: "OpenRouter / qwen/qwen3-next-80b-a3b-instruct:free" }];
+  return [{ name: "OpenRouter / openai/gpt-oss-120b:free" }];
 }
