@@ -340,7 +340,7 @@ async function callOpenRouter(
       "X-Title": "ResuMatch",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "qwen/qwen3-next-80b-a3b-instruct:free",
       messages: [
         { role: "system", content: buildRubricSystemPrompt() },
         {
@@ -377,5 +377,5 @@ export async function analyzeResume(
 }
 
 export function getAvailableModels() {
-  return [{ name: "OpenRouter / google/gemini-2.5-flash" }];
+  return [{ name: "OpenRouter / qwen/qwen3-next-80b-a3b-instruct:free" }];
 }
