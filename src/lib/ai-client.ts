@@ -359,7 +359,7 @@ async function requestOpenRouterAnalysis(
       "X-Title": "ResuMatch",
     },
     body: JSON.stringify({
-      model: "nvidia/nemotron-3-super-120b-a12b:free",
+      model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: buildRubricSystemPrompt() },
         {
@@ -420,5 +420,5 @@ export async function analyzeResume(
 }
 
 export function getAvailableModels() {
-  return [{ name: "OpenRouter / nvidia/nemotron-3-super-120b-a12b:free" }];
+  return [{ name: "OpenRouter / google/gemini-2.5-flash" }];
 }
