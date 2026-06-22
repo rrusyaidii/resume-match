@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { AIAnalysisResult } from "@/lib/ai-client";
 import { processResumePdf } from "@/lib/analyze-resume-file";
 import {
-  ACCESS_COOKIE_NAME,
+  attachAccessCookies,
   checkAndConsumeAccess,
-  cookieOptions,
 } from "@/lib/access-control";
 import { FREE_ANALYSIS_LIMIT } from "@/lib/constants";
 import { validateJobDescription } from "@/lib/validate-job-description";
@@ -17,11 +16,6 @@ interface AnalyzeResponse {
   error?: string;
   remaining?: number;
   unlocked?: boolean;
-}
-
-function attachAccessCookie(response: NextResponse, cookieValue: string) {
-  response.cookies.set(ACCESS_COOKIE_NAME, cookieValue, cookieOptions());
-  return response;
 }
 
 export async function POST(request: NextRequest) {
@@ -45,8 +39,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const accessCookie = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
-    const access = checkAndConsumeAccess(accessCookie);
+    const access = await checkAndConsumeAccess(request);
 
     if (!access.allowed) {
       const response = NextResponse.json<AnalyzeResponse>(
@@ -58,7 +51,7 @@ export async function POST(request: NextRequest) {
         },
         { status: 429 }
       );
-      return attachAccessCookie(response, access.cookieValue);
+      return attachAccessCookies(response, access);
     }
 
     const result = await processResumePdf(file, jobDescription!);
@@ -68,7 +61,7 @@ export async function POST(request: NextRequest) {
         { success: false, error: result.error },
         { status: result.status ?? 400 }
       );
-      return attachAccessCookie(response, access.cookieValue);
+      return attachAccessCookies(response, access);
     }
 
     const response = NextResponse.json<AnalyzeResponse>({
@@ -78,7 +71,7 @@ export async function POST(request: NextRequest) {
       unlocked: access.unlocked,
     });
 
-    return attachAccessCookie(response, access.cookieValue);
+    return attachAccessCookies(response, access);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("Analyze error:", message);

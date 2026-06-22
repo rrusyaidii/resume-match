@@ -1,11 +1,25 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import type { NextRequest } from "next/server";
+import type { NextResponse } from "next/server";
 import { FREE_ANALYSIS_LIMIT } from "./constants";
+import {
+  DEVICE_COOKIE_NAME,
+  deviceCookieOptions,
+  getRequestIdentity,
+} from "./request-identity";
+import {
+  buildUsageKeys,
+  getDevFallbackCount,
+  getUsageCount,
+  incrementDevFallbackCount,
+  incrementUsage,
+  isRedisConfigured,
+} from "./usage-store";
 
 export const ACCESS_COOKIE_NAME = "rm_access";
 export { FREE_ANALYSIS_LIMIT };
 
 interface AccessPayload {
-  count: number;
   unlocked: boolean;
 }
 
@@ -18,7 +32,7 @@ function getSecret(): string {
 }
 
 function signPayload(payload: AccessPayload): string {
-  const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const data = Buffer.from(JSON.stringify({ v: 2, ...payload })).toString("base64url");
   const sig = createHmac("sha256", getSecret()).update(data).digest("base64url");
   return `${data}.${sig}`;
 }
@@ -53,23 +67,14 @@ function normalizePayload(raw: unknown): AccessPayload | null {
   if (!raw || typeof raw !== "object") return null;
 
   const record = raw as Record<string, unknown>;
-  if (
-    typeof record.count !== "number" ||
-    !Number.isInteger(record.count) ||
-    record.count < 0 ||
-    record.count > FREE_ANALYSIS_LIMIT + 1000
-  ) {
-    return null;
-  }
-
   if (typeof record.unlocked !== "boolean") return null;
 
-  return { count: record.count, unlocked: record.unlocked };
+  return { unlocked: record.unlocked };
 }
 
 function parsePayload(cookieValue?: string): AccessPayload {
-  if (!cookieValue) return { count: 0, unlocked: false };
-  return verifyToken(cookieValue) ?? { count: 0, unlocked: false };
+  if (!cookieValue) return { unlocked: false };
+  return verifyToken(cookieValue) ?? { unlocked: false };
 }
 
 function isValidPassword(password?: string | null): boolean {
@@ -87,78 +92,147 @@ function isValidPassword(password?: string | null): boolean {
   }
 }
 
+async function readUsageCount(request: NextRequest): Promise<number> {
+  const identity = getRequestIdentity(request);
+  const keys = buildUsageKeys(identity.deviceId, identity.fingerprint);
+
+  if (isRedisConfigured()) {
+    return getUsageCount(keys);
+  }
+
+  return getDevFallbackCount(keys);
+}
+
+async function consumeUsage(request: NextRequest): Promise<number> {
+  const identity = getRequestIdentity(request);
+  const keys = buildUsageKeys(identity.deviceId, identity.fingerprint);
+
+  if (isRedisConfigured()) {
+    return incrementUsage(keys);
+  }
+
+  return incrementDevFallbackCount(keys);
+}
+
+function buildStatus(used: number, unlocked: boolean): AccessStatus {
+  if (unlocked) {
+    return { remaining: -1, unlocked: true, used };
+  }
+
+  return {
+    remaining: Math.max(0, FREE_ANALYSIS_LIMIT - used),
+    unlocked: false,
+    used,
+  };
+}
+
 export interface AccessStatus {
   remaining: number;
   unlocked: boolean;
   used: number;
 }
 
-export function getAccessStatus(cookieValue?: string): AccessStatus {
-  const payload = parsePayload(cookieValue);
-
-  if (payload.unlocked) {
-    return { remaining: -1, unlocked: true, used: payload.count };
-  }
-
-  const remaining = Math.max(0, FREE_ANALYSIS_LIMIT - payload.count);
-  return { remaining, unlocked: false, used: payload.count };
+export interface AccessCookieUpdate {
+  accessCookie: string;
+  deviceId: string;
+  setDeviceCookie: boolean;
 }
 
 export interface AccessCheckResult extends AccessStatus {
   allowed: boolean;
-  cookieValue: string;
+  accessCookie: string;
+  deviceId: string;
+  setDeviceCookie: boolean;
 }
 
-export function checkAndConsumeAccess(cookieValue: string | undefined): AccessCheckResult {
-  let payload = parsePayload(cookieValue);
+export async function getAccessStatus(request: NextRequest): Promise<AccessCheckResult> {
+  const identity = getRequestIdentity(request);
+  const payload = parsePayload(request.cookies.get(ACCESS_COOKIE_NAME)?.value);
 
   if (payload.unlocked) {
+    const used = await readUsageCount(request);
     return {
       allowed: true,
-      remaining: -1,
-      unlocked: true,
-      used: payload.count,
-      cookieValue: signPayload(payload),
+      ...buildStatus(used, true),
+      accessCookie: signPayload(payload),
+      deviceId: identity.deviceId,
+      setDeviceCookie: identity.isNewDevice,
     };
   }
 
-  if (payload.count >= FREE_ANALYSIS_LIMIT) {
+  const used = await readUsageCount(request);
+  const allowed = used < FREE_ANALYSIS_LIMIT;
+
+  return {
+    allowed,
+    ...buildStatus(used, false),
+    accessCookie: signPayload({ unlocked: false }),
+    deviceId: identity.deviceId,
+    setDeviceCookie: identity.isNewDevice,
+  };
+}
+
+export async function checkAndConsumeAccess(request: NextRequest): Promise<AccessCheckResult> {
+  const identity = getRequestIdentity(request);
+  const payload = parsePayload(request.cookies.get(ACCESS_COOKIE_NAME)?.value);
+  const accessCookie = signPayload(payload);
+
+  if (payload.unlocked) {
+    const used = await readUsageCount(request);
+    return {
+      allowed: true,
+      ...buildStatus(used, true),
+      accessCookie,
+      deviceId: identity.deviceId,
+      setDeviceCookie: identity.isNewDevice,
+    };
+  }
+
+  const used = await readUsageCount(request);
+
+  if (used >= FREE_ANALYSIS_LIMIT) {
     return {
       allowed: false,
-      remaining: 0,
-      unlocked: false,
-      used: payload.count,
-      cookieValue: signPayload(payload),
+      ...buildStatus(used, false),
+      accessCookie: signPayload({ unlocked: false }),
+      deviceId: identity.deviceId,
+      setDeviceCookie: identity.isNewDevice,
     };
   }
 
-  payload = { count: payload.count + 1, unlocked: false };
+  const nextUsed = await consumeUsage(request);
+
   return {
     allowed: true,
-    remaining: FREE_ANALYSIS_LIMIT - payload.count,
-    unlocked: false,
-    used: payload.count,
-    cookieValue: signPayload(payload),
+    ...buildStatus(nextUsed, false),
+    accessCookie: signPayload({ unlocked: false }),
+    deviceId: identity.deviceId,
+    setDeviceCookie: identity.isNewDevice,
   };
 }
 
 export interface UnlockResult {
   success: boolean;
-  cookieValue?: string;
+  accessCookie?: string;
+  deviceId?: string;
+  setDeviceCookie?: boolean;
 }
 
 export function unlockWithPassword(
-  cookieValue: string | undefined,
+  request: NextRequest,
   password: string
 ): UnlockResult {
   if (!isValidPassword(password)) {
     return { success: false };
   }
 
-  const payload = parsePayload(cookieValue);
+  const identity = getRequestIdentity(request);
+
   return {
     success: true,
-    cookieValue: signPayload({ count: payload.count, unlocked: true }),
+    accessCookie: signPayload({ unlocked: true }),
+    deviceId: identity.deviceId,
+    setDeviceCookie: identity.isNewDevice,
   };
 }
 
@@ -170,4 +244,17 @@ export function cookieOptions() {
     maxAge: 60 * 60 * 24 * 365,
     path: "/",
   };
+}
+
+export function attachAccessCookies(
+  response: NextResponse,
+  update: Pick<AccessCookieUpdate, "accessCookie" | "deviceId" | "setDeviceCookie">
+) {
+  response.cookies.set(ACCESS_COOKIE_NAME, update.accessCookie, cookieOptions());
+
+  if (update.setDeviceCookie) {
+    response.cookies.set(DEVICE_COOKIE_NAME, update.deviceId, deviceCookieOptions());
+  }
+
+  return response;
 }

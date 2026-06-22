@@ -26,7 +26,7 @@ Built with **Next.js 16**, **OpenRouter** (Gemini), and **unpdf**.
 | AI | OpenRouter · `google/gemini-2.5-flash` |
 | PDF | unpdf · jsPDF (reports) |
 | Styling | Tailwind CSS v4 |
-| Access | HMAC-signed cookies |
+| Access | Upstash Redis + HMAC-signed cookies |
 
 ## Local development
 
@@ -36,7 +36,14 @@ cp .env.example .env.local   # add your keys
 npm run dev
 ```
 
-Required env vars: `OPENROUTER_API_KEY`, `ACCESS_PASSWORD`, `COOKIE_SECRET`
+Required env vars: `OPENROUTER_API_KEY`, `ACCESS_PASSWORD`, `COOKIE_SECRET`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
+
+### Upstash Redis (free-tier limits)
+
+1. Create a free database at [console.upstash.com](https://console.upstash.com)
+2. Copy the **REST URL** and **REST TOKEN**
+3. Add both to `.env.local` (and Vercel project env vars for production)
+4. Redeploy after adding env vars
 
 ## Project structure
 

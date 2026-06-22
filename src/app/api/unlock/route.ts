@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  ACCESS_COOKIE_NAME,
-  cookieOptions,
+  attachAccessCookies,
   unlockWithPassword,
 } from "@/lib/access-control";
 import { UNLOCK_RATE_LIMIT, UNLOCK_RATE_WINDOW_MS } from "@/lib/constants";
@@ -34,10 +33,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cookieValue = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
-    const result = unlockWithPassword(cookieValue, password);
+    const result = unlockWithPassword(request, password);
 
-    if (!result.success || !result.cookieValue) {
+    if (!result.success || !result.accessCookie || !result.deviceId) {
       return NextResponse.json(
         { success: false, error: "Invalid access code." },
         { status: 401 }
@@ -45,8 +43,11 @@ export async function POST(request: NextRequest) {
     }
 
     const response = NextResponse.json({ success: true, unlocked: true });
-    response.cookies.set(ACCESS_COOKIE_NAME, result.cookieValue, cookieOptions());
-    return response;
+    return attachAccessCookies(response, {
+      accessCookie: result.accessCookie,
+      deviceId: result.deviceId,
+      setDeviceCookie: result.setDeviceCookie ?? false,
+    });
   } catch (error) {
     console.error("Unlock error:", error);
     return NextResponse.json(

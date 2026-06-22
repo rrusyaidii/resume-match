@@ -49,7 +49,7 @@ export function AccessLimitModal({ open, onClose, onUnlocked }: AccessLimitModal
       title="Free trials used"
       description={
         <>
-          You&apos;ve used your {FREE_ANALYSIS_LIMIT} free analyses on this device.
+          You&apos;ve used your {FREE_ANALYSIS_LIMIT} free analyses.
           Enter your access code to continue.
         </>
       }

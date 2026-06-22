@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { AIAnalysisResult } from "@/lib/ai-client";
 import { processResumePdf, validatePdfFile } from "@/lib/analyze-resume-file";
 import {
-  ACCESS_COOKIE_NAME,
+  attachAccessCookies,
   checkAndConsumeAccess,
-  cookieOptions,
 } from "@/lib/access-control";
 import { FREE_ANALYSIS_LIMIT, MAX_BATCH_SIZE } from "@/lib/constants";
 import { validateJobDescription } from "@/lib/validate-job-description";
@@ -19,11 +18,6 @@ interface BatchAnalyzeResponse {
   error?: string;
   remaining?: number;
   unlocked?: boolean;
-}
-
-function attachAccessCookie(response: NextResponse, cookieValue: string) {
-  response.cookies.set(ACCESS_COOKIE_NAME, cookieValue, cookieOptions());
-  return response;
 }
 
 function getResumeFiles(formData: FormData): File[] {
@@ -72,8 +66,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const accessCookie = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
-    const access = checkAndConsumeAccess(accessCookie);
+    const access = await checkAndConsumeAccess(request);
 
     if (!access.allowed) {
       const response = NextResponse.json<BatchAnalyzeResponse>(
@@ -85,7 +78,7 @@ export async function POST(request: NextRequest) {
         },
         { status: 429 }
       );
-      return attachAccessCookie(response, access.cookieValue);
+      return attachAccessCookies(response, access);
     }
 
     const results: BatchResultItem[] = [];
@@ -117,7 +110,7 @@ export async function POST(request: NextRequest) {
       error: anySuccess ? undefined : "No resumes could be analyzed.",
     });
 
-    return attachAccessCookie(response, access.cookieValue);
+    return attachAccessCookies(response, access);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("Batch analyze error:", message);

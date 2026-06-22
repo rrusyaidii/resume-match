@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ACCESS_COOKIE_NAME, getAccessStatus } from "@/lib/access-control";
+import { attachAccessCookies, getAccessStatus } from "@/lib/access-control";
 import { FREE_ANALYSIS_LIMIT } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieValue = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
-    const status = getAccessStatus(cookieValue);
+    const status = await getAccessStatus(request);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
-      ...status,
+      remaining: status.remaining,
+      unlocked: status.unlocked,
+      used: status.used,
       limit: FREE_ANALYSIS_LIMIT,
     });
+
+    return attachAccessCookies(response, status);
   } catch (error) {
     console.error("Access status error:", error);
     return NextResponse.json(
