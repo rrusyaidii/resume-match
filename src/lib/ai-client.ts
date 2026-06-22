@@ -305,25 +305,44 @@ function keywordMatch(resume: string, jd: string): AIAnalysisResult {
   });
 }
 
-function parseJsonResponse(raw: string): AIAnalysisResult {
+function extractJsonObject(raw: string): string {
   const cleaned = raw
     .replace(/```json\s*/gi, "")
-    .replace(/```\s*$/g, "")
+    .replace(/```/g, "")
     .trim();
 
-  try {
-    return normalizeResult(JSON.parse(cleaned));
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start !== -1 && end > start) {
-      return normalizeResult(JSON.parse(cleaned.slice(start, end + 1)));
-    }
-    throw new Error("AI returned invalid JSON");
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    return cleaned.slice(start, end + 1);
   }
+
+  return cleaned;
 }
 
-async function callOpenRouter(
+function repairJson(text: string): string {
+  return text
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/,\s*([\]}])/g, "$1");
+}
+
+function parseJsonResponse(raw: string): AIAnalysisResult {
+  const candidates = [raw, repairJson(extractJsonObject(raw))];
+  let lastError: Error | undefined;
+
+  for (const candidate of candidates) {
+    try {
+      return normalizeResult(JSON.parse(candidate));
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  throw lastError ?? new Error("AI returned invalid JSON");
+}
+
+async function requestOpenRouterAnalysis(
   resumeText: string,
   jobDescription: string
 ): Promise<AIAnalysisResult> {
@@ -340,7 +359,7 @@ async function callOpenRouter(
       "X-Title": "ResuMatch",
     },
     body: JSON.stringify({
-      model: "openai/gpt-oss-120b:free",
+      model: "nvidia/nemotron-3-super-120b-a12b:free",
       messages: [
         { role: "system", content: buildRubricSystemPrompt() },
         {
@@ -348,7 +367,7 @@ async function callOpenRouter(
           content: buildRubricUserPrompt(resumeText, jobDescription),
         },
       ],
-      temperature: 0.15,
+      temperature: 0.1,
       max_tokens: 3000,
       response_format: { type: "json_object" },
     }),
@@ -362,7 +381,31 @@ async function callOpenRouter(
 
   const data = await response.json();
   const rawContent = data.choices?.[0]?.message?.content ?? "";
+  if (!rawContent.trim()) {
+    throw new Error("AI returned empty response");
+  }
+
   return parseJsonResponse(rawContent);
+}
+
+async function callOpenRouter(
+  resumeText: string,
+  jobDescription: string
+): Promise<AIAnalysisResult> {
+  try {
+    return await requestOpenRouterAnalysis(resumeText, jobDescription);
+  } catch (firstError) {
+    const message = firstError instanceof Error ? firstError.message : String(firstError);
+    const isJsonError =
+      message.includes("JSON") || message.includes("Unexpected token") || message.includes("position");
+
+    if (!isJsonError) {
+      throw firstError;
+    }
+
+    console.warn("AI JSON parse failed, retrying once:", message);
+    return await requestOpenRouterAnalysis(resumeText, jobDescription);
+  }
 }
 
 export async function analyzeResume(
@@ -377,5 +420,5 @@ export async function analyzeResume(
 }
 
 export function getAvailableModels() {
-  return [{ name: "OpenRouter / openai/gpt-oss-120b:free" }];
+  return [{ name: "OpenRouter / nvidia/nemotron-3-super-120b-a12b:free" }];
 }
