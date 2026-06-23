@@ -95,6 +95,7 @@ export function BatchComparisonPanel({
   };
 
   return (
+    <>
     <div ref={panelRef} className="results-enter space-y-8" aria-live="polite">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -208,18 +209,19 @@ export function BatchComparisonPanel({
           />
         </div>
       )}
+    </div>
       {showBackToTop && (
         <button
           type="button"
           onClick={scrollToComparisonTop}
           aria-label="Back to comparison"
-          className="fixed bottom-6 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-teal text-white shadow-lg shadow-teal/30 hover:bg-teal/90 transition-colors focus-ring mb-[env(safe-area-inset-bottom)] mr-[env(safe-area-inset-right)]"
+          className="fixed bottom-6 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-teal text-white shadow-lg shadow-teal/30 hover:bg-teal/90 transition-colors focus-ring mb-[env(safe-area-inset-bottom)] mr-[env(safe-area-inset-right)]"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75 12 8.25l7.5 7.5" />
           </svg>
         </button>
       )}
-    </div>
+    </>
   );
 }
