@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { processResumePdf, validatePdfFile } from "@/lib/analyze-resume-file";
+import { processResumeFile, validateResumeFile } from "@/lib/analyze-resume-file";
 import {
   attachAccessCookies,
   checkAndConsumeAccess,
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     for (const file of files) {
-      const fileError = validatePdfFile(file);
+      const fileError = validateResumeFile(file);
       if (fileError) {
         return NextResponse.json<BatchAnalyzeResponse>(
           { success: false, error: `${file.name}: ${fileError}` },
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     for (const file of files) {
       try {
-        const result = await processResumePdf(file, jobDescription!);
+        const result = await processResumeFile(file, jobDescription!);
         if (result.success) {
           results.push({ fileName: file.name, success: true, data: result.data });
         } else {

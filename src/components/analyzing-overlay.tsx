@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 
 const SINGLE_STEPS = [
-  { id: 1, label: "Reading PDF…", delayMs: 0 },
+  { id: 1, label: "Reading resume…", delayMs: 0 },
   { id: 2, label: "Scoring against job description…", delayMs: 3000 },
 ] as const;
 
 const BATCH_STEPS = [
-  { id: 1, label: "Reading PDFs…", delayMs: 0 },
+  { id: 1, label: "Reading resumes…", delayMs: 0 },
   { id: 2, label: "Scoring candidates…", delayMs: 3000 },
 ] as const;
 

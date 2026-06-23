@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AIAnalysisResult } from "@/lib/ai-client";
-import { processResumePdf } from "@/lib/analyze-resume-file";
+import { processResumeFile } from "@/lib/analyze-resume-file";
 import {
   attachAccessCookies,
   checkAndConsumeAccess,
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       return attachAccessCookies(response, access);
     }
 
-    const result = await processResumePdf(file, jobDescription!);
+    const result = await processResumeFile(file, jobDescription!);
 
     if (!result.success) {
       const response = NextResponse.json<AnalyzeResponse>(

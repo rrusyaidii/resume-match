@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { MAX_BATCH_SIZE } from "@/lib/constants";
+import { ACCEPTED_RESUME_INPUT, isAcceptedResumeFile } from "@/lib/resume-file-client";
 
 interface UploadZoneProps {
   files: File[];
@@ -14,14 +15,10 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function isPdfFile(file: File): boolean {
-  return file.name.toLowerCase().endsWith(".pdf");
-}
-
-function mergePdfFiles(existing: File[], incoming: File[]): File[] {
+function mergeResumeFiles(existing: File[], incoming: File[]): File[] {
   const merged = [...existing];
   for (const file of incoming) {
-    if (!isPdfFile(file)) continue;
+    if (!isAcceptedResumeFile(file)) continue;
     if (merged.length >= MAX_BATCH_SIZE) break;
     const duplicate = merged.some(
       (item) => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified
@@ -45,9 +42,9 @@ export function UploadZone({ files, onFilesChange }: UploadZoneProps) {
 
   const addFiles = useCallback(
     (incoming: File[]) => {
-      const pdfFiles = incoming.filter(isPdfFile);
-      if (pdfFiles.length === 0) return;
-      onFilesChange(mergePdfFiles(files, pdfFiles));
+      const resumeFiles = incoming.filter(isAcceptedResumeFile);
+      if (resumeFiles.length === 0) return;
+      onFilesChange(mergeResumeFiles(files, resumeFiles));
     },
     [files, onFilesChange]
   );
@@ -92,7 +89,7 @@ export function UploadZone({ files, onFilesChange }: UploadZoneProps) {
           1
         </span>
         <label htmlFor={inputId} className="text-sm font-semibold text-ink cursor-pointer">
-          Resume{files.length !== 1 ? "s" : ""} (PDF)
+          Resume{files.length !== 1 ? "s" : ""} (PDF or Word)
         </label>
       </div>
 
@@ -147,7 +144,7 @@ export function UploadZone({ files, onFilesChange }: UploadZoneProps) {
             id={inputId}
             name="resume"
             type="file"
-            accept="application/pdf,.pdf"
+            accept={ACCEPTED_RESUME_INPUT}
             multiple
             className="hidden"
             onChange={(e) => {
@@ -179,7 +176,7 @@ export function UploadZone({ files, onFilesChange }: UploadZoneProps) {
             <>
               <p className="text-sm font-semibold text-ink">Drag & drop resumes here</p>
               <p className="mt-1 text-xs text-muted">
-                PDF only · Max 10 MB each · Up to {MAX_BATCH_SIZE} files
+                PDF or Word (.docx) · Max 10 MB each · Up to {MAX_BATCH_SIZE} files
               </p>
               <span className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg bg-teal px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors group-hover:bg-teal/90">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>

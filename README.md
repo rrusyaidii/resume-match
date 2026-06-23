@@ -1,6 +1,6 @@
 # ResuMatch — AI Resume Screener
 
-Upload one or more resume PDFs, paste a job description, and get AI-powered match scores with strengths, gaps, and hiring recommendations.
+Upload one or more resume PDFs or Word (.docx) files, paste a job description, and get AI-powered match scores with strengths, gaps, and hiring recommendations.
 
 Built with **Next.js 16**, **OpenRouter** (Gemini 2.5 Flash), **Upstash Redis**, and **unpdf**.
 
@@ -10,8 +10,9 @@ Built with **Next.js 16**, **OpenRouter** (Gemini 2.5 Flash), **Upstash Redis**,
 
 - **Single or batch screening** — 1 PDF works as before; add up to 5 to compare scores side-by-side (one JD, ranked by match)
 - **Malaysia tech rubric** — Weighted scores across 5 dimensions plus Shortlist / HM Review / Reject decisions
-- **PDF parsing** — Text extraction via unpdf (50 pages max, 10 MB per file)
+- **PDF parsing** — Text extraction via unpdf (50 pages max, 10 MB per file); Word `.docx` via mammoth
 - **Full report** — Strengths, gaps, verdict, recommendations; open PDF report in a new tab
+- **Resume upload** — PDF or Word (.docx); Google Docs users can download as .docx
 - **Try with sample** — Pre-loaded resume + job description for a quick demo
 - **Free tier** — 2 free analyses; access code unlocks unlimited use
 - **Light / dark mode** — Toggle in the header; preference saved locally

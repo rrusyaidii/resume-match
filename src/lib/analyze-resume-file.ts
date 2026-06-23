@@ -1,27 +1,15 @@
 import { analyzeResume, type AIAnalysisResult } from "@/lib/ai-client";
+import { extractTextFromDocx } from "@/lib/extract-docx";
 import { extractTextFromPdf } from "@/lib/extract-pdf";
-import { MAX_PDF_BYTES, SCANNED_PDF_ERROR } from "@/lib/constants";
+import { EMPTY_RESUME_ERROR } from "@/lib/constants";
+import {
+  detectResumeType,
+  isPdfBuffer,
+  validateResumeBuffer,
+  validateResumeFile,
+} from "@/lib/resume-file-types";
 
-export function isPdfBuffer(buffer: Buffer): boolean {
-  return buffer.length >= 4 && buffer.subarray(0, 4).toString("ascii") === "%PDF";
-}
-
-export function validatePdfFile(file: File): string | null {
-  if (!file.name.toLowerCase().endsWith(".pdf")) {
-    return "Only PDF files are supported";
-  }
-  if (file.size > MAX_PDF_BYTES) {
-    return "File too large. Maximum size is 10MB";
-  }
-  return null;
-}
-
-export async function validatePdfBuffer(buffer: Buffer): Promise<string | null> {
-  if (!isPdfBuffer(buffer)) {
-    return "Only valid PDF files are supported";
-  }
-  return null;
-}
+export { isPdfBuffer };
 
 export type ProcessResumeSuccess = {
   success: true;
@@ -36,39 +24,81 @@ export type ProcessResumeFailure = {
 
 export type ProcessResumeResult = ProcessResumeSuccess | ProcessResumeFailure;
 
-export async function processResumePdf(
+async function extractResumeText(
+  buffer: Buffer,
+  fileName: string
+): Promise<{ text: string } | { error: string; status: number }> {
+  const bufferCheck = validateResumeBuffer(buffer, fileName);
+  if ("error" in bufferCheck) {
+    return { error: bufferCheck.error, status: 400 };
+  }
+
+  try {
+    const text =
+      bufferCheck.type === "pdf"
+        ? await extractTextFromPdf(buffer)
+        : await extractTextFromDocx(buffer);
+
+    if (!text.trim()) {
+      return { error: EMPTY_RESUME_ERROR, status: 422 };
+    }
+
+    return { text };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("too many pages")) {
+      return { error: message, status: 400 };
+    }
+    return {
+      error: message || "Failed to read resume file.",
+      status: 400,
+    };
+  }
+}
+
+export async function processResumeFile(
   file: File,
   jobDescription: string
 ): Promise<ProcessResumeResult> {
-  const fileError = validatePdfFile(file);
+  const fileError = validateResumeFile(file);
   if (fileError) {
     return { success: false, error: fileError, status: 400 };
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const bufferError = await validatePdfBuffer(buffer);
-  if (bufferError) {
-    return { success: false, error: bufferError, status: 400 };
+  const extracted = await extractResumeText(buffer, file.name);
+
+  if ("error" in extracted) {
+    return { success: false, error: extracted.error, status: extracted.status };
   }
 
-  let resumeText: string;
-  try {
-    resumeText = await extractTextFromPdf(buffer);
-  } catch (pdfError) {
-    const message = pdfError instanceof Error ? pdfError.message : "";
-    if (message.includes("too many pages")) {
-      return { success: false, error: message, status: 400 };
-    }
-    throw pdfError;
-  }
-
-  if (!resumeText.trim()) {
-    return { success: false, error: SCANNED_PDF_ERROR, status: 422 };
-  }
-
-  const truncatedResume = resumeText.slice(0, 8000);
+  const truncatedResume = extracted.text.slice(0, 8000);
   const truncatedJD = jobDescription.trim().slice(0, 4000);
   const data = await analyzeResume(truncatedResume, truncatedJD);
 
   return { success: true, data };
+}
+
+/** @deprecated Use processResumeFile */
+export async function processResumePdf(
+  file: File,
+  jobDescription: string
+): Promise<ProcessResumeResult> {
+  return processResumeFile(file, jobDescription);
+}
+
+/** @deprecated Use validateResumeFile */
+export function validatePdfFile(file: File): string | null {
+  return validateResumeFile(file);
+}
+
+export { validateResumeFile } from "@/lib/resume-file-types";
+
+/** @deprecated Use validateResumeBuffer via processResumeFile */
+export async function validatePdfBuffer(buffer: Buffer): Promise<string | null> {
+  const type = detectResumeType("resume.pdf", buffer);
+  if (type !== "pdf") {
+    return "Only valid PDF files are supported";
+  }
+  return null;
 }
