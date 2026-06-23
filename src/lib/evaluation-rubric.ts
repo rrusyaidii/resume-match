@@ -31,38 +31,38 @@ export interface SeniorityBand {
 export const RUBRIC_DIMENSIONS: RubricDimensionDefinition[] = [
   {
     id: "technical_stack",
-    label: "Technical stack fit",
+    label: "Core skills & tools fit",
     weight: 35,
     hint:
-      "Must-have languages, frameworks, and tools from the JD. Use contextual inference (Spring Boot → Java, .NET → C#).",
+      "Must-have skills, tools, and systems from the JD (code for engineers; HRIS/ATS for HR; CRM for sales; ERP for finance; etc.). Use reasonable inference where equivalents apply.",
   },
   {
     id: "seniority_experience",
     label: "Seniority & experience",
     weight: 25,
     hint:
-      "MY bands vs JD title/years: Fresh grad (<1), Junior (1–2), Mid (2–5), Senior (5–8), Lead (8+). Project ownership depth.",
+      "MY bands vs JD title/years: Fresh grad (<1), Junior (1–2), Mid (2–5), Senior (5–8), Lead (8+). Scope and ownership for the role family.",
   },
   {
     id: "project_delivery",
     label: "Project & delivery evidence",
     weight: 20,
     hint:
-      "Relevant products shipped, team scale, CI/CD, agile/scrum, measurable outcomes on the resume.",
+      "Measurable outcomes on the resume: shipped products, hires made, cases handled, revenue, KPIs, process improvements, programmes delivered.",
   },
   {
     id: "domain_industry",
     label: "Domain & industry fit",
     weight: 10,
     hint:
-      "Banking, fintech, e-commerce, SaaS, gov tech — only score if the JD implies a domain requirement.",
+      "Banking, retail, manufacturing, healthcare, SaaS, etc. — only score when the JD implies a domain requirement.",
   },
   {
     id: "qualifications_extras",
     label: "Qualifications & extras",
     weight: 10,
     hint:
-      "Degree or certs if JD requires; cloud/agile. Score language (BM/EN/Mandarin) only if JD explicitly asks.",
+      "Degree or professional certs if JD requires (ACCA, SHRM, AWS, etc.). Score language (BM/EN/Mandarin) only if JD explicitly asks.",
   },
 ];
 
@@ -79,8 +79,8 @@ export const DECISION_BANDS: DecisionBand[] = [
     min: 80,
     max: 100,
     label: "Shortlist",
-    headline: "Proceed to technical interview",
-    action: "Advance to technical interview — candidate meets core requirements.",
+    headline: "Proceed to interview",
+    action: "Advance to interview — candidate meets core requirements.",
     tier: "strong",
   },
   {
@@ -191,7 +191,7 @@ export function normalizeDimensions(
   });
 }
 
-export function buildRubricSystemPrompt(): string {
+export function buildRubricSystemPrompt(playbook = ""): string {
   const dimensionSchema = RUBRIC_DIMENSIONS.map(
     (d) => `    { "id": "${d.id}", "label": "${d.label}", "score": <0-100>, "note": "<one sentence evidence>" }`
   ).join(",\n");
@@ -208,10 +208,13 @@ export function buildRubricSystemPrompt(): string {
     (b) => `- ${b.label}: ${b.minYears === b.maxYears ? "<1 yr" : `${b.minYears}-${b.maxYears === 99 ? "8+" : b.maxYears} yr`}`
   ).join("\n");
 
-  return `You are a senior technical recruiter screening candidates for software and engineering roles in Malaysia.
+  const playbookSection = playbook.trim()
+    ? `${playbook.trim()}\n\n---\n\n`
+    : "";
 
-Analyze how well the resume matches the job description. Return ONLY valid JSON — no markdown, no commentary.
+  return `${playbookSection}Analyze how well the resume matches the job description. Return ONLY valid JSON — no markdown, no commentary.
 
+OUTPUT FORMAT (strict JSON only):
 {
   "dimensions": [
 ${dimensionSchema}
@@ -224,9 +227,9 @@ ${dimensionSchema}
   "recommendations": ["<3-5 actionable next steps for the hiring manager>"]
 }
 
-Do NOT include matchScore — it is computed from dimension scores.
+Do NOT include matchScore — it is computed server-side from dimension scores.
 
-Malaysia tech screening rubric — score each dimension 0-100:
+SCORING WEIGHTS — score each dimension 0-100:
 ${dimensionRules}
 
 MY seniority bands:
@@ -239,24 +242,11 @@ Compliance gates (set gateFlags when triggered):
 Decision bands (derived from weighted score — align verdict accordingly):
 ${decisionRules}
 
-MY context rules:
-- Do NOT score on university tier, age, or ethnicity
-- Only score language (BM/Mandarin/English) if JD explicitly requires it
-- Notice period: mention in recommendations if relevant, not a dimension score
-- Location/hybrid: only score if JD states onsite/hybrid requirement
-- Use contextual inference: Spring Boot → Java, ASP.NET → C#, React → JavaScript
-
-General rules:
-- First infer must-haves vs nice-to-haves from the JD
-- Never output keyword lists — every item must be a complete sentence
-- Be specific: cite resume titles, tools, years, projects
-- Be honest: weak fit for a senior JD should score low on seniority_experience and technical_stack
-- Do not invent JD requirements
-- If JD is invalid (URL, placeholder, nonsense), set all dimension scores 0-15, gateFlags empty, explain in summary`;
+If JD is invalid (URL, placeholder, nonsense), set all dimension scores 0-15, gateFlags empty, explain in summary.`;
 }
 
 export function buildRubricUserPrompt(resumeText: string, jobDescription: string): string {
-  return `Analyze this candidate against the job description using the Malaysia tech screening rubric.
+  return `Analyze this candidate against the job description using the Malaysia screening rubric. Identify the role family (engineering, HR, recruiter, admin, sales, finance, ops, support, or other) and score accordingly.
 
 Step 1: Identify must-have vs nice-to-have requirements from the JD.
 Step 2: Score all 5 dimensions (0-100 each) with one-sentence evidence notes.
@@ -302,7 +292,7 @@ export function buildDefaultRecommendations(score: number): string[] {
   switch (decision.label) {
     case "Shortlist":
       return [
-        "Schedule a technical interview focused on the strongest matching skills.",
+        "Schedule an interview focused on the strongest matching skills and experience.",
         "Verify depth on the top 2-3 strengths — ask for specific project examples and ownership.",
         "Confirm notice period, availability, and compensation expectations before advancing.",
       ];
@@ -316,7 +306,7 @@ export function buildDefaultRecommendations(score: number): string[] {
       return [
         "Conduct a brief phone screen to clarify gaps before committing interview time.",
         "Ask directly about each gap — some skills may be present but not stated on the resume.",
-        "Compare against other candidates before scheduling a full technical interview.",
+        "Compare against other candidates before scheduling a full interview.",
       ];
     case "Hold":
       return [

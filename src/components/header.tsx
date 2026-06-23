@@ -26,8 +26,8 @@ export function PageHero() {
       <h1 className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
         Paste the JD. Get a hire signal.
       </h1>
-      <p className="mx-auto mt-3 max-w-xl text-base text-muted leading-relaxed">
-        Upload a resume, paste the job description, and get a scored verdict using the Malaysia tech rubric —{" "}
+      <p className="mx-auto mt-3 max-w-xl text-sm sm:text-base text-muted leading-relaxed">
+        Upload a resume, paste the job description, and get a scored verdict using the Malaysia hiring rubric —{" "}
         <span className="text-match font-medium">Shortlist</span>
         {" · "}
         <span className="text-caution font-medium">HM Review</span>

@@ -9,7 +9,7 @@ Built with **Next.js 16**, **OpenRouter** (Gemini 2.5 Flash), **Upstash Redis**,
 ## Features
 
 - **Single or batch screening** — 1 PDF works as before; add up to 5 to compare scores side-by-side (one JD, ranked by match)
-- **Malaysia tech rubric** — Weighted scores across 5 dimensions plus Shortlist / HM Review / Reject decisions
+- **Malaysia hiring rubric** — Weighted scores across 5 dimensions for engineering, HR, admin, sales, and all roles; Shortlist / HM Review / Reject decisions
 - **PDF parsing** — Text extraction via unpdf (50 pages max, 10 MB per file); Word `.docx` via mammoth
 - **Full report** — Strengths, gaps, verdict, recommendations; open PDF report in a new tab
 - **Resume upload** — PDF or Word (.docx); Google Docs users can download as .docx
@@ -83,10 +83,17 @@ src/
 │   └── …
 └── lib/
     ├── ai-client.ts
-    ├── evaluation-rubric.ts
+    ├── evaluation-rubric.ts      # weights, decision bands, JSON schema
+    ├── rubric/
+    │   ├── recruiter-playbook.md   # recruiter judgment — edit to tune AI screening
+    │   └── load-playbook.ts
     ├── extract-pdf.ts
     └── analyze-resume-file.ts
 ```
+
+### Tuning the AI rubric
+
+Recruiter judgment (persona, Malaysia hiring context, red flags, examples) lives in [`src/lib/rubric/recruiter-playbook.md`](src/lib/rubric/recruiter-playbook.md). Edit that file to change how Gemini reasons about candidates. Dimension weights, decision bands, and score math stay in [`src/lib/evaluation-rubric.ts`](src/lib/evaluation-rubric.ts).
 
 ---
 

@@ -33,7 +33,7 @@ function Spinner() {
 export function AnalyzingOverlay({ batch = false, fileCount = 1 }: AnalyzingOverlayProps) {
   return (
     <div
-      className="form-rail rounded-2xl border border-border bg-card p-8 sm:p-12 shadow-sm text-center"
+      className="form-rail rounded-2xl border border-border bg-card p-6 sm:p-8 sm:p-12 shadow-sm text-center"
       aria-live="polite"
       aria-busy="true"
     >

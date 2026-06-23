@@ -18,7 +18,7 @@ export function RubricBreakdown({ dimensions, decision, gateFlags }: RubricBreak
     <section className="border-b border-border px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
       <div className="flex flex-col gap-2 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-ink">Malaysia tech screening rubric</h3>
+          <h3 className="text-sm font-semibold text-ink">Malaysia screening rubric</h3>
           <p className="text-xs text-muted mt-0.5">Weighted score across 5 dimensions</p>
         </div>
         <span className="inline-flex self-start items-center rounded-full border border-teal/30 bg-teal/10 px-3 py-1 text-xs font-semibold text-teal">

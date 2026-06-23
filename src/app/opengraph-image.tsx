@@ -75,7 +75,7 @@ export default function Image() {
             lineHeight: 1.4,
           }}
         >
-          Malaysia tech rubric · Shortlist · HM Review · Reject
+          Malaysia hiring rubric · Shortlist · HM Review · Reject
         </p>
 
         <div style={{ display: "flex", alignItems: "center", gap: 32 }}>

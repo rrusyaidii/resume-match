@@ -371,7 +371,7 @@ export default function Home() {
               </button>
             </div>
             <div className="form-rail rounded-2xl border border-border bg-card shadow-sm">
-              <div className="p-6 sm:p-8 space-y-8">
+              <div className="p-4 sm:p-6 sm:p-8 space-y-8">
                 <section aria-labelledby="section-resume">
                   <h2 id="section-resume" className="workflow-section-label mb-3">
                     Resume

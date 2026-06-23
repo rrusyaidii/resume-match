@@ -42,7 +42,7 @@ export function AnalysisHistoryPanel({
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="flex min-h-10 flex-1 items-center gap-2 text-left text-sm font-medium text-ink focus-ring rounded"
+          className="flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-ink focus-ring rounded"
         >
           <svg
             className={`h-3.5 w-3.5 text-muted transition-transform ${open ? "rotate-90" : ""}`}
@@ -61,7 +61,7 @@ export function AnalysisHistoryPanel({
           type="button"
           onClick={onClear}
           disabled={disabled}
-          className="text-xs font-medium text-muted hover:text-gap transition-colors min-h-10 px-2 focus-ring rounded disabled:opacity-50"
+          className="shrink-0 text-xs font-medium text-muted hover:text-gap transition-colors min-h-10 px-2 focus-ring rounded disabled:opacity-50"
         >
           Clear all
         </button>
@@ -79,7 +79,7 @@ export function AnalysisHistoryPanel({
                   disabled={disabled}
                   className="min-h-10 flex-1 text-left focus-ring rounded disabled:opacity-50 py-1"
                 >
-                  <div className="flex items-center gap-2 mb-0.5">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-0.5">
                     <span
                       className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-data font-semibold tabular-nums"
                       style={{

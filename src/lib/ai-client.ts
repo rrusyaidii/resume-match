@@ -184,12 +184,17 @@ function buildOfflineDimensions(
   }
 
   const hasDeliverySignals =
-    /agile|scrum|ci\/cd|deploy|deliver|shipped|production|sprint/i.test(resume);
+    /agile|scrum|ci\/cd|deploy|deliver|shipped|production|sprint|kpi|managed|processed|hired|onboard|campaign|payroll|quota|revenue|handled|implemented|rolled out/i.test(
+      resume
+    );
   const projectScore = hasDeliverySignals
     ? Math.min(70, skillScore + 10)
     : Math.max(30, skillScore - 10);
 
-  const domainKeywords = ["bank", "fintech", "e-commerce", "ecommerce", "saas", "gov", "insurance"];
+  const domainKeywords = [
+    "bank", "fintech", "e-commerce", "ecommerce", "saas", "gov", "insurance",
+    "retail", "manufacturing", "healthcare", "logistics", "hr", "shared service",
+  ];
   const jdDomain = domainKeywords.some((k) => jd.toLowerCase().includes(k));
   const resumeDomain = domainKeywords.some((k) => resume.toLowerCase().includes(k));
   const domainScore = jdDomain ? (resumeDomain ? 70 : 35) : 55;
@@ -208,7 +213,7 @@ function buildOfflineDimensions(
         note:
           matched.length > 0
             ? `Resume shows ${matched.length} of ${matched.length + missed.length} key skills from the JD.`
-            : "Limited overlap with technical requirements stated in the job description.",
+            : "Limited overlap with core skills or requirements stated in the job description.",
       },
       {
         id: "seniority_experience",
@@ -222,8 +227,8 @@ function buildOfflineDimensions(
         id: "project_delivery",
         score: projectScore,
         note: hasDeliverySignals
-          ? "Resume mentions delivery practices such as agile, CI/CD, or production deployments."
-          : "Limited evidence of project delivery or shipping experience on the resume.",
+          ? "Resume mentions delivery outcomes such as projects completed, hires, KPIs, or process improvements."
+          : "Limited evidence of delivery outcomes or measurable results on the resume.",
       },
       {
         id: "domain_industry",
@@ -276,7 +281,7 @@ function keywordMatch(resume: string, jd: string): AIAnalysisResult {
   }
   if (strengths.length === 0) {
     strengths.push(
-      "Resume contains general professional experience but few clear matches to the stated technical requirements."
+      "Resume contains general professional experience but few clear matches to the stated job requirements."
     );
   }
 
@@ -346,6 +351,9 @@ async function requestOpenRouterAnalysis(
   resumeText: string,
   jobDescription: string
 ): Promise<AIAnalysisResult> {
+  const { loadRecruiterPlaybook } = await import("@/lib/rubric/load-playbook");
+  const playbook = loadRecruiterPlaybook();
+
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ??
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
@@ -361,7 +369,7 @@ async function requestOpenRouterAnalysis(
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
       messages: [
-        { role: "system", content: buildRubricSystemPrompt() },
+        { role: "system", content: buildRubricSystemPrompt(playbook) },
         {
           role: "user",
           content: buildRubricUserPrompt(resumeText, jobDescription),

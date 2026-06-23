@@ -110,7 +110,7 @@ export function BatchComparisonPanel({
         <button
           type="button"
           onClick={onReset}
-          className="self-start min-h-11 rounded-xl bg-teal px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-teal/90 transition-colors focus-ring"
+          className="flex w-full sm:w-auto items-center justify-center self-start min-h-11 rounded-xl bg-teal px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-teal/90 transition-colors focus-ring"
         >
           New analysis
         </button>
