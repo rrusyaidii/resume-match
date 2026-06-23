@@ -2,13 +2,15 @@ import {
   buildCandidateDataRows,
   buildCandidateRows,
   buildDailySpreadsheetTitle,
-  buildJobDescriptionAppendRows,
-  buildJobDescriptionRows,
+  buildExportMeta,
+  buildJobDescriptionBlockRows,
+  SHEET_HEADERS_VERSION,
 } from "@/lib/build-sheet-rows";
 import type { BatchResultItem } from "@/lib/batch-types";
 import {
   getDailySheet,
   getMalaysiaDateKey,
+  isDailySheetCompatible,
   setDailySheet,
 } from "@/lib/google-daily-sheet-store";
 import { getGoogleAccessToken } from "@/lib/google-oauth";
@@ -67,9 +69,11 @@ async function appendSheetRows(
 async function createDailySpreadsheet(
   accessToken: string,
   results: BatchResultItem[],
-  jobDescription: string
+  jobDescription: string,
+  exportedAt: Date
 ): Promise<{ spreadsheetId: string; spreadsheetUrl: string }> {
-  const title = buildDailySpreadsheetTitle();
+  const title = buildDailySpreadsheetTitle(exportedAt);
+  const meta = buildExportMeta(jobDescription, results, exportedAt);
 
   const created = await sheetsRequest<{
     spreadsheetId: string;
@@ -85,8 +89,8 @@ async function createDailySpreadsheet(
     }),
   });
 
-  const candidateRows = buildCandidateRows(results);
-  const jobRows = buildJobDescriptionRows(jobDescription);
+  const candidateRows = buildCandidateRows(results, meta);
+  const jobRows = buildJobDescriptionBlockRows(jobDescription, meta);
 
   await sheetsRequest(accessToken, `/spreadsheets/${created.spreadsheetId}/values:batchUpdate`, {
     method: "POST",
@@ -120,8 +124,9 @@ async function appendBatchToSpreadsheet(
   jobDescription: string,
   exportedAt: Date
 ): Promise<void> {
-  const candidateRows = buildCandidateDataRows(results);
-  const jobRows = buildJobDescriptionAppendRows(jobDescription, exportedAt);
+  const meta = buildExportMeta(jobDescription, results, exportedAt);
+  const candidateRows = buildCandidateDataRows(results, meta);
+  const jobRows = buildJobDescriptionBlockRows(jobDescription, meta);
 
   if (candidateRows.length > 0) {
     await appendSheetRows(accessToken, spreadsheetId, "Candidates!A:Z", candidateRows);
@@ -146,7 +151,11 @@ export async function exportBatchToGoogleSheet(
   const exportedAt = new Date();
   const existing = await getDailySheet(deviceId);
 
-  if (existing && existing.dateKey === dateKey) {
+  if (
+    existing &&
+    existing.dateKey === dateKey &&
+    isDailySheetCompatible(existing)
+  ) {
     try {
       await appendBatchToSpreadsheet(
         accessToken,
@@ -166,12 +175,18 @@ export async function exportBatchToGoogleSheet(
     }
   }
 
-  const created = await createDailySpreadsheet(accessToken, results, jobDescription);
+  const created = await createDailySpreadsheet(
+    accessToken,
+    results,
+    jobDescription,
+    exportedAt
+  );
 
   await setDailySheet(deviceId, {
     dateKey,
     spreadsheetId: created.spreadsheetId,
     spreadsheetUrl: created.spreadsheetUrl,
+    headersVersion: SHEET_HEADERS_VERSION,
   });
 
   return {

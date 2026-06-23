@@ -3,9 +3,22 @@ import type { BatchResultItem } from "@/lib/batch-types";
 import { RUBRIC_DIMENSIONS } from "@/lib/evaluation-rubric";
 
 const SHEET_CELL_LIMIT = 50000;
+const JD_EXCERPT_LENGTH = 120;
 const MALAYSIA_TZ = "Asia/Kuala_Lumpur";
 
+export const SHEET_HEADERS_VERSION = 2;
+
+export interface ExportMeta {
+  exportId: string;
+  exportedAtLabel: string;
+  jobDescriptionExcerpt: string;
+  candidateCount: number;
+}
+
 export const CANDIDATE_HEADERS = [
+  "Export ID",
+  "Exported at",
+  "Job description excerpt",
   "Rank",
   "Filename",
   "Score",
@@ -56,7 +69,43 @@ export function formatMalaysiaExportTime(date = new Date()): string {
   return `${formatted} MYT`;
 }
 
-export function buildCandidateDataRows(results: BatchResultItem[]): string[][] {
+export function generateExportId(date = new Date()): string {
+  const stamp = date.toLocaleString("sv-SE", { timeZone: MALAYSIA_TZ });
+  const [datePart, timePart] = stamp.split(" ");
+  const compactDate = datePart?.replace(/-/g, "") ?? "";
+  const compactTime = timePart?.replace(/:/g, "") ?? "";
+  return `EXP-${compactDate}-${compactTime}`;
+}
+
+export function buildJobDescriptionExcerpt(jobDescription: string): string {
+  const trimmed = jobDescription.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= JD_EXCERPT_LENGTH) return trimmed;
+  return `${trimmed.slice(0, JD_EXCERPT_LENGTH - 1)}…`;
+}
+
+export function buildExportMeta(
+  jobDescription: string,
+  results: BatchResultItem[],
+  exportedAt = new Date()
+): ExportMeta {
+  const candidateCount = results.filter((item) => item.success && item.data).length;
+
+  return {
+    exportId: generateExportId(exportedAt),
+    exportedAtLabel: formatMalaysiaExportTime(exportedAt),
+    jobDescriptionExcerpt: buildJobDescriptionExcerpt(jobDescription),
+    candidateCount,
+  };
+}
+
+function metaPrefix(meta: ExportMeta): [string, string, string] {
+  return [meta.exportId, meta.exportedAtLabel, meta.jobDescriptionExcerpt];
+}
+
+export function buildCandidateDataRows(
+  results: BatchResultItem[],
+  meta: ExportMeta
+): string[][] {
   const successful = results
     .filter((item): item is BatchResultItem & { success: true; data: AIAnalysisResult } =>
       item.success && !!item.data
@@ -68,6 +117,7 @@ export function buildCandidateDataRows(results: BatchResultItem[]): string[][] {
   successful.forEach((item, index) => {
     const data = item.data;
     rows.push([
+      ...metaPrefix(meta),
       String(index + 1),
       item.fileName,
       String(data.matchScore),
@@ -85,6 +135,7 @@ export function buildCandidateDataRows(results: BatchResultItem[]): string[][] {
   const failed = results.filter((item) => !item.success);
   for (const item of failed) {
     rows.push([
+      ...metaPrefix(meta),
       "",
       item.fileName,
       "",
@@ -102,21 +153,38 @@ export function buildCandidateDataRows(results: BatchResultItem[]): string[][] {
   return rows;
 }
 
-export function buildCandidateRows(results: BatchResultItem[]): string[][] {
-  return [CANDIDATE_HEADERS, ...buildCandidateDataRows(results)];
+export function buildCandidateRows(
+  results: BatchResultItem[],
+  meta: ExportMeta
+): string[][] {
+  return [CANDIDATE_HEADERS, ...buildCandidateDataRows(results, meta)];
 }
 
-export function buildJobDescriptionRows(jobDescription: string): string[][] {
-  return [["Job description"], [truncateCell(jobDescription.trim())]];
-}
-
-export function buildJobDescriptionAppendRows(
+export function buildJobDescriptionBlockRows(
   jobDescription: string,
-  exportedAt = new Date()
+  meta: ExportMeta
 ): string[][] {
   return [
-    ["—"],
-    [`Exported ${formatMalaysiaExportTime(exportedAt)}`],
+    [`Export ID: ${meta.exportId}`],
+    [`Exported: ${meta.exportedAtLabel}`],
+    [`Candidates: ${meta.candidateCount}`],
     [truncateCell(jobDescription.trim())],
+    ["—"],
   ];
+}
+
+/** @deprecated Use buildJobDescriptionBlockRows */
+export function buildJobDescriptionRows(
+  jobDescription: string,
+  meta: ExportMeta
+): string[][] {
+  return buildJobDescriptionBlockRows(jobDescription, meta);
+}
+
+/** @deprecated Use buildJobDescriptionBlockRows */
+export function buildJobDescriptionAppendRows(
+  jobDescription: string,
+  meta: ExportMeta
+): string[][] {
+  return buildJobDescriptionBlockRows(jobDescription, meta);
 }

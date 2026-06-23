@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { AIAnalysisResult } from "@/lib/ai-client";
 import type { HistoryEntry } from "@/lib/history-types";
 import type { BatchResultItem } from "@/lib/batch-types";
-import { FREE_ANALYSIS_LIMIT } from "@/lib/constants";
+import { FREE_ANALYSIS_LIMIT, MAX_BATCH_SIZE } from "@/lib/constants";
 import { addRecentJd, getRecentJds, removeRecentJd, type RecentJd } from "@/lib/recent-jds";
 import { SiteHeader, PageHero } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
@@ -448,7 +448,7 @@ export default function Home() {
                   <h2 id="section-resume" className="workflow-section-label mb-3">
                     Resume
                   </h2>
-                  <p className="text-xs text-muted mb-3 -mt-1">PDF or Word (.docx) · up to 5 files</p>
+                  <p className="text-xs text-muted mb-3 -mt-1">PDF or Word (.docx) · up to {MAX_BATCH_SIZE} files</p>
                   <UploadZone
                     files={files}
                     onFilesChange={setFiles}

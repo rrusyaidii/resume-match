@@ -18,7 +18,7 @@ import {
   hashJobDescription,
   validateAndAdvanceBatchSession,
 } from "@/lib/batch-session";
-import { FREE_ANALYSIS_LIMIT, RATE_LIMIT_MESSAGE } from "@/lib/constants";
+import { FREE_ANALYSIS_LIMIT, MAX_BATCH_SIZE, RATE_LIMIT_MESSAGE } from "@/lib/constants";
 import { getRequestIdentity } from "@/lib/request-identity";
 import { checkAnalyzeRateLimit } from "@/lib/redis-rate-limit";
 import { isTurnstileConfigured, verifyTurnstileFromRequest } from "@/lib/turnstile";
@@ -50,7 +50,7 @@ function parseBatchTotal(value: FormDataEntryValue | null): number {
   if (typeof value !== "string") return 0;
   const parsed = parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed < 2) return 0;
-  return Math.min(parsed, 5);
+  return Math.min(parsed, MAX_BATCH_SIZE);
 }
 
 function parseBatchResults(value: FormDataEntryValue | null): BatchResultItem[] | null {

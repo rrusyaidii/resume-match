@@ -8,7 +8,7 @@ Built with **Next.js 16**, **OpenRouter** (Gemini 2.5 Flash), **Upstash Redis**,
 
 ## Features
 
-- **Single or batch screening** — 1 PDF works as before; add up to 5 to compare scores side-by-side (one JD, ranked by match)
+- **Single or batch screening** — 1 PDF works as before; add up to 10 to compare scores side-by-side (one JD, ranked by match)
 - **Malaysia hiring rubric** — Weighted scores across 5 dimensions for engineering, HR, admin, sales, and all roles; Shortlist / HM Review / Reject decisions
 - **PDF parsing** — Text extraction via unpdf (50 pages max, 10 MB per file); Word `.docx` via mammoth
 - **Full report** — Strengths, gaps, verdict, recommendations; open PDF report in a new tab
