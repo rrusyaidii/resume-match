@@ -370,25 +370,42 @@ export default function Home() {
                 {isLoadingSample ? "Loading sample…" : "Try with sample"}
               </button>
             </div>
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8 space-y-8">
-              <UploadZone files={files} onFilesChange={setFiles} />
-              <div className="border-t border-border" />
-              <JobDescriptionField
-                value={jd}
-                onChange={setJd}
-                recentJds={recentJds}
-                onSelectRecent={setJd}
-                onRemoveRecent={(id) => setRecentJds(removeRecentJd(id))}
-              />
-              <div className="border-t border-border" />
-              <AnalyzeButton
-                isAnalyzing={false}
-                disabled={!canSubmit || (turnstileRequired && !turnstileToken)}
-                limitReached={isLimitReached}
-                remaining={remaining}
-                unlocked={unlocked}
-                fileCount={files.length}
-              />
+            <div className="form-rail rounded-2xl border border-border bg-card shadow-sm">
+              <div className="p-6 sm:p-8 space-y-8">
+                <section aria-labelledby="section-resume">
+                  <h2 id="section-resume" className="workflow-section-label mb-3">
+                    Resume
+                  </h2>
+                  <p className="text-xs text-muted mb-3 -mt-1">PDF or Word (.docx) · up to 5 files</p>
+                  <UploadZone
+                    files={files}
+                    onFilesChange={setFiles}
+                    labelledBy="section-resume"
+                  />
+                </section>
+
+                <section aria-labelledby="section-jd">
+                  <h2 id="section-jd" className="workflow-section-label mb-3">
+                    Job description
+                  </h2>
+                  <JobDescriptionField
+                    value={jd}
+                    onChange={setJd}
+                    recentJds={recentJds}
+                    onSelectRecent={setJd}
+                    onRemoveRecent={(id) => setRecentJds(removeRecentJd(id))}
+                    labelledBy="section-jd"
+                  />
+                </section>
+
+                <AnalyzeButton
+                  isAnalyzing={false}
+                  disabled={!canSubmit || (turnstileRequired && !turnstileToken)}
+                  limitReached={isLimitReached}
+                  remaining={remaining}
+                  unlocked={unlocked}
+                  fileCount={files.length}
+                />
               {turnstileRequired && turnstileSiteKey && (
                 <TurnstileWidget
                   siteKey={turnstileSiteKey}
@@ -401,6 +418,7 @@ export default function Home() {
                 unlocked={unlocked}
                 onRequestUnlock={openUnlockFlow}
               />
+              </div>
             </div>
           </form>
         )}

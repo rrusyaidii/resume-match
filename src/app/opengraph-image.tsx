@@ -15,7 +15,7 @@ export default function Image() {
           flexDirection: "column",
           justifyContent: "center",
           padding: "64px 80px",
-          background: "#f6f4ef",
+          background: "#edf0f4",
           fontFamily: "system-ui, sans-serif",
         }}
       >
@@ -32,7 +32,7 @@ export default function Image() {
               width: 56,
               height: 56,
               borderRadius: 12,
-              background: "#2a6b6b",
+              background: "#2d6a6a",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -47,7 +47,7 @@ export default function Image() {
             style={{
               fontSize: 48,
               fontWeight: 700,
-              color: "#1a2332",
+              color: "#1e2d3d",
               letterSpacing: "-0.02em",
             }}
           >
@@ -59,23 +59,23 @@ export default function Image() {
           style={{
             fontSize: 36,
             fontWeight: 600,
-            color: "#1a2332",
+            color: "#1e2d3d",
             marginBottom: 16,
             lineHeight: 1.2,
           }}
         >
-          Match score in seconds
+          Paste the JD. Get a hire signal.
         </p>
 
         <p
           style={{
             fontSize: 22,
-            color: "#5c6678",
+            color: "#5a6b7a",
             marginBottom: 48,
             lineHeight: 1.4,
           }}
         >
-          Upload resume · Paste job description · Get strengths, gaps & verdict
+          Malaysia tech rubric · Shortlist · HM Review · Reject
         </p>
 
         <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
@@ -84,14 +84,14 @@ export default function Image() {
               width: 120,
               height: 120,
               borderRadius: "50%",
-              border: "10px solid #2a6b6b",
+              border: "10px solid #2d6a6a",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               background: "white",
             }}
           >
-            <span style={{ fontSize: 36, fontWeight: 700, color: "#2d6a4e" }}>
+            <span style={{ fontSize: 36, fontWeight: 700, color: "#2f6b4f" }}>
               78%
             </span>
           </div>
@@ -100,16 +100,27 @@ export default function Image() {
               style={{
                 fontSize: 20,
                 fontWeight: 600,
-                color: "#2d6a4e",
+                color: "#2f6b4f",
               }}
             >
               Shortlist
             </span>
-            <span style={{ fontSize: 18, color: "#5c6678" }}>
-              AI-powered resume screening
+            <span style={{ fontSize: 18, color: "#5a6b7a" }}>
+              Resume screening for hiring teams
             </span>
           </div>
         </div>
+
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 6,
+            background: "#c17a2e",
+          }}
+        />
       </div>
     ),
     { ...size }

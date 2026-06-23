@@ -7,6 +7,7 @@ import { ACCEPTED_RESUME_INPUT, isAcceptedResumeFile } from "@/lib/resume-file-c
 interface UploadZoneProps {
   files: File[];
   onFilesChange: (files: File[]) => void;
+  labelledBy?: string;
 }
 
 function formatFileSize(bytes: number): string {
@@ -28,7 +29,7 @@ function mergeResumeFiles(existing: File[], incoming: File[]): File[] {
   return merged.slice(0, MAX_BATCH_SIZE);
 }
 
-export function UploadZone({ files, onFilesChange }: UploadZoneProps) {
+export function UploadZone({ files, onFilesChange, labelledBy }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
@@ -83,16 +84,7 @@ export function UploadZone({ files, onFilesChange }: UploadZoneProps) {
   const atLimit = files.length >= MAX_BATCH_SIZE;
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-teal/10 text-xs font-bold text-teal">
-          1
-        </span>
-        <label htmlFor={inputId} className="text-sm font-semibold text-ink cursor-pointer">
-          Resume{files.length !== 1 ? "s" : ""} (PDF or Word)
-        </label>
-      </div>
-
+    <div aria-labelledby={labelledBy}>
       {files.length > 0 && (
         <ul className="mb-4 space-y-2">
           {files.map((file, index) => (
@@ -107,7 +99,7 @@ export function UploadZone({ files, onFilesChange }: UploadZoneProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-ink truncate">{file.name}</p>
-                <p className="text-xs text-muted">{formatFileSize(file.size)}</p>
+                <p className="text-xs text-muted font-data">{formatFileSize(file.size)}</p>
               </div>
               <button
                 type="button"

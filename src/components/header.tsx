@@ -12,19 +12,10 @@ export function SiteHeader() {
           </div>
           <div>
             <p className="text-sm font-bold text-ink leading-none">ResuMatch</p>
-            <p className="text-[11px] text-muted mt-0.5">AI-powered screening</p>
+            <p className="text-[11px] text-muted mt-0.5">Resume screening</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <span className="inline-flex sm:hidden items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-medium text-muted">
-            AI screening
-          </span>
-          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-[11px] font-medium text-muted">
-            <span className="h-1.5 w-1.5 rounded-full bg-match animate-pulse" />
-            Powered by OpenRouter
-          </span>
-        </div>
+        <ThemeToggle />
       </div>
     </header>
   );
@@ -34,10 +25,15 @@ export function PageHero() {
   return (
     <div className="mb-8 text-center sm:mb-10">
       <h1 className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-        Screen resumes in seconds
+        Paste the JD. Get a hire signal.
       </h1>
-      <p className="mx-auto mt-3 max-w-lg text-base text-muted leading-relaxed">
-        Upload a candidate&apos;s resume, paste the job description, and get a detailed match analysis with hiring recommendations.
+      <p className="mx-auto mt-3 max-w-xl text-base text-muted leading-relaxed">
+        Upload a resume, paste the job description, and get a scored verdict using the Malaysia tech rubric —{" "}
+        <span className="text-match font-medium">Shortlist</span>
+        {" · "}
+        <span className="text-caution font-medium">HM Review</span>
+        {" · "}
+        <span className="text-gap font-medium">Reject</span>.
       </p>
     </div>
   );

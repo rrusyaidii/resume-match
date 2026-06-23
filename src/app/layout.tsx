@@ -1,23 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Source_Sans_3, Geist_Mono } from "next/font/google";
+import { Newsreader, DM_Sans, JetBrains_Mono } from "next/font/google";
 import { ServiceWorkerCleanup } from "@/components/service-worker-cleanup";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
-const fraunces = Fraunces({
+const newsreader = Newsreader({
   variable: "--font-display",
   subsets: ["latin"],
   display: "swap",
 });
 
-const sourceSans = Source_Sans_3({
+const dmSans = DM_Sans({
   variable: "--font-body",
   subsets: ["latin"],
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-data",
   subsets: ["latin"],
   display: "swap",
 });
@@ -63,7 +63,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${sourceSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${newsreader.variable} ${dmSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
