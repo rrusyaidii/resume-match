@@ -20,6 +20,7 @@ export function BatchComparisonPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const [expandedFileName, setExpandedFileName] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   const successful = results
     .filter((item): item is BatchResultItem & { success: true; data: AIAnalysisResult } =>
@@ -41,6 +42,42 @@ export function BatchComparisonPanel({
       block: "start",
     });
   }, []);
+
+  useEffect(() => {
+    if (!expandedFileName) {
+      setShowBackToTop(false);
+      return;
+    }
+
+    const updateVisibility = () => {
+      const el = panelRef.current;
+      if (!el || !expandedFileName) {
+        setShowBackToTop(false);
+        return;
+      }
+      setShowBackToTop(el.getBoundingClientRect().top < -48);
+    };
+
+    updateVisibility();
+    window.addEventListener("scroll", updateVisibility, { passive: true });
+    window.addEventListener("resize", updateVisibility);
+
+    return () => {
+      window.removeEventListener("scroll", updateVisibility);
+      window.removeEventListener("resize", updateVisibility);
+    };
+  }, [expandedFileName]);
+
+  const scrollToComparisonTop = () => {
+    const el = panelRef.current;
+    if (!el) return;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  };
 
   const toggleExpand = (fileName: string) => {
     setExpandedFileName((current) => (current === fileName ? null : fileName));
@@ -170,6 +207,18 @@ export function BatchComparisonPanel({
             scrollOnMount={false}
           />
         </div>
+      )}
+      {showBackToTop && (
+        <button
+          type="button"
+          onClick={scrollToComparisonTop}
+          aria-label="Back to comparison"
+          className="fixed bottom-6 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-teal text-white shadow-lg shadow-teal/30 hover:bg-teal/90 transition-colors focus-ring mb-[env(safe-area-inset-bottom)] mr-[env(safe-area-inset-right)]"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75 12 8.25l7.5 7.5" />
+          </svg>
+        </button>
       )}
     </div>
   );
