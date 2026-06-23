@@ -5,6 +5,7 @@ import type { AIAnalysisResult } from "@/lib/ai-client";
 import type { BatchResultItem } from "@/lib/batch-types";
 import { ResultsPanel } from "./results-panel";
 import { getTierMeta } from "./results-utils";
+import { GoogleSheetsActions } from "./google-sheets-actions";
 
 interface BatchComparisonPanelProps {
   results: BatchResultItem[];
@@ -97,23 +98,33 @@ export function BatchComparisonPanel({
   return (
     <>
     <div ref={panelRef} className="results-enter space-y-8" aria-live="polite">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-semibold text-ink">
-            Candidate comparison
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            {successful.length} ranked by match score
-            {failed.length > 0 ? ` · ${failed.length} failed` : ""}
-          </p>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-display text-2xl font-semibold text-ink">
+              Candidate comparison
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              {successful.length} ranked by match score
+              {failed.length > 0 ? ` · ${failed.length} failed` : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onReset}
+            className="flex w-full sm:w-auto shrink-0 items-center justify-center min-h-11 rounded-xl bg-teal px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-teal/90 transition-colors focus-ring"
+          >
+            New analysis
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onReset}
-          className="flex w-full sm:w-auto items-center justify-center self-start min-h-11 rounded-xl bg-teal px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-teal/90 transition-colors focus-ring"
-        >
-          New analysis
-        </button>
+
+        <div className="rounded-xl border border-border bg-surface/60 px-4 py-4 sm:px-5">
+          <GoogleSheetsActions
+            results={results}
+            jobDescription={jobDescription}
+            exportableCount={successful.length}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

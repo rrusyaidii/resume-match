@@ -19,6 +19,7 @@ Built with **Next.js 16**, **OpenRouter** (Gemini 2.5 Flash), **Upstash Redis**,
 - **Free tier** — 2 free analyses; access code unlocks unlimited use
 - **Light / dark mode** — Toggle in the header; preference saved locally
 - **Responsive UI** — Mobile-friendly forms, results, and comparison grid
+- **Google Sheets export** — After single or batch analysis, connect Google and export to one spreadsheet per day (Malaysia time); multiple exports the same day append to the same sheet
 
 ## Stack
 
@@ -64,6 +65,15 @@ Unlocked users skip IP limits. Tune in `src/lib/constants.ts`.
 
 Add `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to require a captcha on free-tier analyze only. Unlocked users skip it.
 
+### Google Sheets export (optional)
+
+1. Google Cloud Console → enable **Google Sheets API** + **Google Drive API**
+2. OAuth consent screen → add scopes: `spreadsheets`, `drive.file`, `userinfo.email`
+3. Create OAuth **Web client** → redirect URI: `http://localhost:3000/api/google/callback` (and your production URL)
+4. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to `.env.local` and Vercel
+5. Requires Upstash Redis (tokens stored encrypted per device)
+6. Exports compile into **one spreadsheet per Malaysia calendar day**; a new sheet is created the next day
+
 ## Project structure
 
 ```
@@ -72,6 +82,8 @@ src/
 │   ├── api/
 │   │   ├── analyze/          # single resume
 │   │   ├── analyze-batch/    # multi-resume (1 credit per batch)
+│   │   ├── export/google-sheets/
+│   │   ├── google/connect|callback|status|disconnect
 │   │   ├── access/
 │   │   └── unlock/
 │   ├── opengraph-image.tsx

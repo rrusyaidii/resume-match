@@ -16,7 +16,10 @@ import { AccessCodeField } from "@/components/access-code-field";
 import { AccessCodeModal } from "@/components/access-code-modal";
 import { AccessLimitModal } from "@/components/access-limit-modal";
 import { ErrorBanner } from "@/components/error-banner";
-import { AnalyzingOverlay } from "@/components/analyzing-overlay";
+import {
+  AnalyzingOverlay,
+  type BatchProgress,
+} from "@/components/analyzing-overlay";
 import { BatchComparisonPanel } from "@/components/batch-comparison-panel";
 import { ResultsPanel } from "@/components/results-panel";
 import { AnalysisHistoryPanel } from "@/components/analysis-history-panel";
@@ -25,6 +28,10 @@ import {
   SAMPLE_JOB_DESCRIPTION,
   fetchSampleResumeFile,
 } from "@/lib/sample-data";
+import {
+  consumePendingExport,
+  exportToGoogleSheets,
+} from "@/lib/export-batch-sheet-client";
 
 type Status = "idle" | "analyzing" | "done" | "error";
 
@@ -66,6 +73,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const turnstileRequired = !unlocked && Boolean(turnstileSiteKey);
@@ -73,6 +81,7 @@ export default function Home() {
   const canSubmit = files.length >= 1 && validateJobDescription(jd).valid;
   const isLimitReached = remaining === 0 && !unlocked;
   const isBatch = files.length > 1;
+  const showBatchResults = Boolean(batchResults && batchResults.length > 1);
 
   const refreshHistory = useCallback(async () => {
     const entries = await loadHistory();
@@ -142,6 +151,62 @@ export default function Home() {
     return { response, data };
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const googleStatus = params.get("google");
+    if (!googleStatus) return;
+
+    const cleanUrl = () => {
+      params.delete("google");
+      params.delete("reason");
+      const next = params.toString();
+      const path = next ? `${window.location.pathname}?${next}` : window.location.pathname;
+      window.history.replaceState({}, "", path);
+    };
+
+    if (googleStatus === "error") {
+      setError("Google connection failed. Please try again.");
+      setStatus("error");
+      cleanUrl();
+      return;
+    }
+
+    if (googleStatus !== "connected") {
+      cleanUrl();
+      return;
+    }
+
+    const pending = consumePendingExport();
+    cleanUrl();
+
+    if (!pending) return;
+
+    const first = pending.results[0];
+    if (pending.results.length === 1 && first?.success && first.data) {
+      setResult(first.data);
+      setBatchResults(null);
+    } else {
+      setBatchResults(pending.results);
+      setResult(null);
+    }
+    setJd(pending.jobDescription);
+    setStatus("done");
+
+    exportToGoogleSheets(pending.results, pending.jobDescription)
+      .then((data) => {
+        if (data.success && data.url) {
+          window.open(data.url, "_blank", "noopener,noreferrer");
+          return;
+        }
+        setError(data.error || "Export to Google Sheets failed.");
+        setStatus("error");
+      })
+      .catch(() => {
+        setError("Export to Google Sheets failed.");
+        setStatus("error");
+      });
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || files.length === 0) return;
@@ -161,6 +226,7 @@ export default function Home() {
     setError("");
     setResult(null);
     setBatchResults(null);
+    setBatchProgress(null);
 
     try {
       if (!isBatch) {
@@ -198,6 +264,8 @@ export default function Home() {
         const file = files[i]!;
         const isLast = i === files.length - 1;
 
+        setBatchProgress({ current: i + 1, total, fileName: file.name });
+
         const { response, data } = await analyzeOneFile(file, {
           batchSessionId,
           batchTotal: batchSessionId ? undefined : total,
@@ -226,7 +294,6 @@ export default function Home() {
             success: false,
             error: data.error || "Analysis failed.",
           });
-
           if (i === 0) {
             setError(data.error || "Analysis failed. Try again.");
             setStatus("error");
@@ -268,6 +335,7 @@ export default function Home() {
     setJd("");
     setResult(null);
     setBatchResults(null);
+    setBatchProgress(null);
     setError("");
     setStatus("idle");
   };
@@ -355,7 +423,11 @@ export default function Home() {
         )}
 
         {status === "analyzing" && (
-          <AnalyzingOverlay batch={isBatch} fileCount={files.length} />
+          <AnalyzingOverlay
+            batch={isBatch}
+            fileCount={files.length}
+            progress={batchProgress ?? undefined}
+          />
         )}
 
         {status !== "done" && status !== "analyzing" && (
@@ -423,7 +495,7 @@ export default function Home() {
           </form>
         )}
 
-        {status === "done" && result && !batchResults && (
+        {status === "done" && result && !showBatchResults && (
           <ResultsPanel
             result={result}
             resumeFileName={files[0]?.name ?? "Resume"}
@@ -432,7 +504,7 @@ export default function Home() {
           />
         )}
 
-        {status === "done" && batchResults && batchResults.length > 0 && (
+        {status === "done" && showBatchResults && batchResults && (
           <BatchComparisonPanel
             results={batchResults}
             jobDescription={jd}

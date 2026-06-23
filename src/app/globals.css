@@ -112,6 +112,47 @@ body {
   animation: results-enter 0.45s ease-out both;
 }
 
+@keyframes analyzing-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loader-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.15;
+    transform: scale(1.08);
+  }
+}
+
+.analyzing-enter {
+  animation: analyzing-enter 0.3s ease-out both;
+}
+
+.review-loader-ring {
+  animation: loader-spin 1.1s linear infinite;
+}
+
+.review-loader-pulse {
+  animation: loader-pulse 2s ease-in-out infinite;
+}
+
 @keyframes progress-indeterminate {
   0% {
     transform: translateX(-100%);
@@ -123,6 +164,10 @@ body {
 
 .progress-indeterminate {
   animation: progress-indeterminate 1.4s ease-in-out infinite;
+}
+
+.progress-determinate {
+  transition: width 0.4s ease-out;
 }
 
 .report-card {
@@ -155,5 +200,25 @@ body {
     animation: none;
     transform: translateX(0);
     width: 60%;
+  }
+
+  .progress-determinate {
+    transition: none;
+  }
+
+  .analyzing-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .review-loader-ring {
+    animation: none;
+  }
+
+  .review-loader-pulse {
+    animation: none;
+    opacity: 0.25;
+    transform: none;
   }
 }

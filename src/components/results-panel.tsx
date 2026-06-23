@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AIAnalysisResult } from "@/lib/ai-client";
+import type { BatchResultItem } from "@/lib/batch-types";
 import { ScoreGauge } from "./score-gauge";
 import { InsightList, RecommendationsList } from "./insight-list";
 import { getTierMeta } from "./results-utils";
 import { RubricBreakdown } from "./rubric-breakdown";
+import { GoogleSheetsActions } from "./google-sheets-actions";
 
 interface ResultsPanelProps {
   result: AIAnalysisResult;
@@ -51,8 +53,27 @@ export function ResultsPanel({
     }
   };
 
+  const showSheetsExport = showActions && Boolean(jobDescription?.trim());
+  const exportResults: BatchResultItem[] = [
+    {
+      fileName: resumeFileName ?? "Resume",
+      success: true,
+      data: result,
+    },
+  ];
+
   return (
-    <div ref={panelRef} className="results-enter" aria-live="polite">
+    <div ref={panelRef} className="results-enter space-y-4" aria-live="polite">
+      {showSheetsExport && (
+        <div className="rounded-xl border border-border bg-surface/60 px-4 py-4 sm:px-5">
+          <GoogleSheetsActions
+            results={exportResults}
+            jobDescription={jobDescription!}
+            exportableCount={1}
+          />
+        </div>
+      )}
+
       <article className="report-card overflow-hidden rounded-2xl border border-border shadow-2xl">
         <div
           className="relative border-b border-border px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10"
