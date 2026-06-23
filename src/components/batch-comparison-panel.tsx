@@ -68,12 +68,12 @@ export function BatchComparisonPanel({
     };
   }, [expandedFileName]);
 
-  const scrollToComparisonTop = () => {
-    const el = panelRef.current;
-    if (!el) return;
+  const scrollToHeader = () => {
+    const header = document.getElementById("site-header");
+    if (!header) return;
 
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({
+    header.scrollIntoView({
       behavior: prefersReducedMotion ? "auto" : "smooth",
       block: "start",
     });
@@ -213,8 +213,8 @@ export function BatchComparisonPanel({
       {showBackToTop && (
         <button
           type="button"
-          onClick={scrollToComparisonTop}
-          aria-label="Back to comparison"
+          onClick={scrollToHeader}
+          aria-label="Back to header"
           className="fixed bottom-6 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-teal text-white shadow-lg shadow-teal/30 hover:bg-teal/90 transition-colors focus-ring mb-[env(safe-area-inset-bottom)] mr-[env(safe-area-inset-right)]"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden>
