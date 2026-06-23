@@ -185,8 +185,8 @@ export default function Home() {
         applyAnalyzeMeta(data);
         setResult(data.data ?? null);
         setRecentJds(addRecentJd(jd));
-        await refreshHistory();
         setStatus("done");
+        void refreshHistory();
         return;
       }
 
@@ -254,8 +254,8 @@ export default function Home() {
 
       setBatchResults(results);
       setRecentJds(addRecentJd(jd));
-      await refreshHistory();
       setStatus("done");
+      void refreshHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setStatus("error");
@@ -423,7 +423,7 @@ export default function Home() {
           </form>
         )}
 
-        {result && !batchResults && (
+        {status === "done" && result && !batchResults && (
           <ResultsPanel
             result={result}
             resumeFileName={files[0]?.name ?? "Resume"}
@@ -432,7 +432,7 @@ export default function Home() {
           />
         )}
 
-        {batchResults && batchResults.length > 0 && (
+        {status === "done" && batchResults && batchResults.length > 0 && (
           <BatchComparisonPanel
             results={batchResults}
             jobDescription={jd}
