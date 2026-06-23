@@ -26,6 +26,11 @@ function getRedis(): Redis {
   return redis;
 }
 
+export function getRedisClient(): Redis | null {
+  if (!isRedisConfigured()) return null;
+  return getRedis();
+}
+
 function toStoreKey(key: string): string {
   return `${KEY_PREFIX}${key}`;
 }

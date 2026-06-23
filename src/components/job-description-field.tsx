@@ -1,13 +1,23 @@
 "use client";
 
 import { JD_MIN_CHARS, validateJobDescription } from "@/lib/validate-job-description";
+import type { RecentJd } from "@/lib/recent-jds";
 
 interface JobDescriptionFieldProps {
   value: string;
   onChange: (value: string) => void;
+  recentJds?: RecentJd[];
+  onSelectRecent?: (text: string) => void;
+  onRemoveRecent?: (id: string) => void;
 }
 
-export function JobDescriptionField({ value, onChange }: JobDescriptionFieldProps) {
+export function JobDescriptionField({
+  value,
+  onChange,
+  recentJds = [],
+  onSelectRecent,
+  onRemoveRecent,
+}: JobDescriptionFieldProps) {
   const charCount = value.trim().length;
   const validation = validateJobDescription(value);
   const isValid = validation.valid;
@@ -34,6 +44,35 @@ export function JobDescriptionField({ value, onChange }: JobDescriptionFieldProp
           )}
         </span>
       </div>
+
+      {recentJds.length > 0 && onSelectRecent && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <span className="w-full text-xs font-medium text-muted">Recent:</span>
+          {recentJds.map((item) => (
+            <span key={item.id} className="inline-flex items-center max-w-full">
+              <button
+                type="button"
+                onClick={() => onSelectRecent(item.text)}
+                className="inline-flex max-w-[14rem] items-center rounded-l-lg border border-r-0 border-border bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-teal/5 hover:border-teal/30 transition-colors focus-ring truncate"
+                title={item.text}
+              >
+                {item.label}
+              </button>
+              {onRemoveRecent && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveRecent(item.id)}
+                  aria-label={`Remove ${item.label}`}
+                  className="inline-flex h-[30px] w-8 items-center justify-center rounded-r-lg border border-border bg-surface text-muted hover:text-gap hover:bg-gap/5 transition-colors focus-ring"
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
       <textarea
         id="job-description"
         value={value}

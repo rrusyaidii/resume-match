@@ -19,6 +19,10 @@ export const ANALYZE_GLOBAL_DAILY_WINDOW_SEC = 24 * 60 * 60;
 export const RATE_LIMIT_MESSAGE =
   "Too many requests. Try again later or enter an access code.";
 
+export const HISTORY_MAX_ITEMS = 10;
+export const BATCH_SESSION_TTL_SEC = 15 * 60;
+export const RECENT_JD_MAX_ITEMS = 5;
+
 export const EMPTY_RESUME_ERROR =
   "Could not read text from this file. Use a text-based PDF or .docx export from Word/Google Docs.";
 

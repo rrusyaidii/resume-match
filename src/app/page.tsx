@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { AIAnalysisResult } from "@/lib/ai-client";
+import type { HistoryEntry } from "@/lib/history-types";
 import type { BatchResultItem } from "@/lib/batch-types";
 import { FREE_ANALYSIS_LIMIT } from "@/lib/constants";
+import { addRecentJd, getRecentJds, removeRecentJd, type RecentJd } from "@/lib/recent-jds";
 import { SiteHeader, PageHero } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
 import { UploadZone } from "@/components/upload-zone";
@@ -14,9 +16,14 @@ import { AccessCodeField } from "@/components/access-code-field";
 import { AccessCodeModal } from "@/components/access-code-modal";
 import { AccessLimitModal } from "@/components/access-limit-modal";
 import { ErrorBanner } from "@/components/error-banner";
-import { AnalyzingOverlay } from "@/components/analyzing-overlay";
+import {
+  AnalyzingOverlay,
+  type BatchProgress,
+  type CompletedFile,
+} from "@/components/analyzing-overlay";
 import { BatchComparisonPanel } from "@/components/batch-comparison-panel";
 import { ResultsPanel } from "@/components/results-panel";
+import { AnalysisHistoryPanel } from "@/components/analysis-history-panel";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 import {
   SAMPLE_JOB_DESCRIPTION,
@@ -24,6 +31,29 @@ import {
 } from "@/lib/sample-data";
 
 type Status = "idle" | "analyzing" | "done" | "error";
+
+interface AnalyzeApiResponse {
+  success: boolean;
+  data?: AIAnalysisResult;
+  error?: string;
+  remaining?: number;
+  unlocked?: boolean;
+  batchSessionId?: string;
+  batchComplete?: boolean;
+}
+
+async function loadHistory(): Promise<HistoryEntry[]> {
+  try {
+    const res = await fetch("/api/history");
+    const data = await res.json();
+    if (data.success && Array.isArray(data.entries)) {
+      return data.entries as HistoryEntry[];
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
 
 export default function Home() {
   const [status, setStatus] = useState<Status>("idle");
@@ -35,9 +65,13 @@ export default function Home() {
   const [codeModalOpen, setCodeModalOpen] = useState(false);
   const [result, setResult] = useState<AIAnalysisResult | null>(null);
   const [batchResults, setBatchResults] = useState<BatchResultItem[] | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+  const [recentJds, setRecentJds] = useState<RecentJd[]>([]);
   const [error, setError] = useState("");
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
+  const [completedFiles, setCompletedFiles] = useState<CompletedFile[]>([]);
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const turnstileRequired = !unlocked && Boolean(turnstileSiteKey);
@@ -45,6 +79,11 @@ export default function Home() {
   const canSubmit = files.length >= 1 && validateJobDescription(jd).valid;
   const isLimitReached = remaining === 0 && !unlocked;
   const isBatch = files.length > 1;
+
+  const refreshHistory = useCallback(async () => {
+    const entries = await loadHistory();
+    setHistoryEntries(entries);
+  }, []);
 
   useEffect(() => {
     fetch("/api/access")
@@ -59,7 +98,55 @@ export default function Home() {
         }
       })
       .catch(() => {});
-  }, []);
+
+    setRecentJds(getRecentJds());
+    void refreshHistory();
+  }, [refreshHistory]);
+
+  const applyAnalyzeMeta = (data: AnalyzeApiResponse) => {
+    if (typeof data.remaining === "number") setRemaining(data.remaining);
+    if (typeof data.unlocked === "boolean") setUnlocked(data.unlocked);
+  };
+
+  const analyzeOneFile = async (
+    file: File,
+    options: {
+      batchSessionId?: string;
+      batchTotal?: number;
+      batchResults?: BatchResultItem[];
+      includeTurnstile: boolean;
+    }
+  ): Promise<{ response: Response; data: AnalyzeApiResponse }> => {
+    const formData = new FormData();
+    formData.append("jobDescription", jd);
+    formData.append("resume", file);
+
+    if (options.batchSessionId) {
+      formData.append("batchSessionId", options.batchSessionId);
+    } else if (options.batchTotal && options.batchTotal > 1) {
+      formData.append("batchTotal", String(options.batchTotal));
+    }
+
+    if (options.batchResults && options.batchResults.length > 0) {
+      formData.append("batchResults", JSON.stringify(options.batchResults));
+    }
+
+    if (options.includeTurnstile && turnstileRequired && turnstileToken) {
+      formData.append("turnstileToken", turnstileToken);
+    }
+
+    const response = await fetch("/api/analyze", { method: "POST", body: formData });
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      return {
+        response,
+        data: { success: false, error: "Analysis failed. Please try again." },
+      };
+    }
+
+    const data = (await response.json()) as AnalyzeApiResponse;
+    return { response, data };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,55 +167,106 @@ export default function Home() {
     setError("");
     setResult(null);
     setBatchResults(null);
-
-    const formData = new FormData();
-    formData.append("jobDescription", jd);
-    for (const file of files) {
-      formData.append("resume", file);
-    }
-    if (turnstileRequired && turnstileToken) {
-      formData.append("turnstileToken", turnstileToken);
-    }
-
-    const endpoint = isBatch ? "/api/analyze-batch" : "/api/analyze";
+    setBatchProgress(null);
+    setCompletedFiles([]);
 
     try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-      });
+      if (!isBatch) {
+        const { response, data } = await analyzeOneFile(files[0], {
+          includeTurnstile: true,
+        });
 
-      const contentType = res.headers.get("content-type") ?? "";
-      if (!contentType.includes("application/json")) {
-        setError("Analysis failed. Please try again.");
-        setStatus("error");
-        return;
-      }
-
-      const data = await res.json();
-
-      if (!data.success) {
-        if (res.status === 429 && data.error?.includes("Free limit")) {
-          setRemaining(0);
-          setLimitModalOpen(true);
-          setStatus("idle");
+        if (!data.success) {
+          if (response.status === 429 && data.error?.includes("Free limit")) {
+            setRemaining(0);
+            setLimitModalOpen(true);
+            setStatus("idle");
+            setTurnstileToken("");
+            return;
+          }
+          setError(data.error || "Analysis failed. Try again.");
+          setStatus("error");
           setTurnstileToken("");
           return;
         }
-        setError(data.error || "Analysis failed. Try again.");
+
+        applyAnalyzeMeta(data);
+        setResult(data.data ?? null);
+        setRecentJds(addRecentJd(jd));
+        await refreshHistory();
+        setStatus("done");
+        return;
+      }
+
+      const results: BatchResultItem[] = [];
+      let batchSessionId: string | undefined;
+      const total = files.length;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]!;
+        const isLast = i === files.length - 1;
+
+        setBatchProgress({ current: i + 1, total, fileName: file.name });
+
+        const { response, data } = await analyzeOneFile(file, {
+          batchSessionId,
+          batchTotal: batchSessionId ? undefined : total,
+          batchResults: isLast ? results : undefined,
+          includeTurnstile: i === 0,
+        });
+
+        if (data.batchSessionId) {
+          batchSessionId = data.batchSessionId;
+        }
+
+        if (!data.success) {
+          if (response.status === 429 && data.error?.includes("Free limit")) {
+            setRemaining(0);
+            setLimitModalOpen(true);
+            setStatus(results.length > 0 ? "done" : "idle");
+            if (results.length > 0) {
+              setBatchResults(results);
+            }
+            setTurnstileToken("");
+            return;
+          }
+
+          results.push({
+            fileName: file.name,
+            success: false,
+            error: data.error || "Analysis failed.",
+          });
+          setCompletedFiles((prev) => [...prev, { fileName: file.name, success: false }]);
+
+          if (i === 0) {
+            setError(data.error || "Analysis failed. Try again.");
+            setStatus("error");
+            setTurnstileToken("");
+            return;
+          }
+          continue;
+        }
+
+        applyAnalyzeMeta(data);
+        results.push({
+          fileName: file.name,
+          success: true,
+          data: data.data,
+        });
+        setCompletedFiles((prev) => [...prev, { fileName: file.name, success: true }]);
+      }
+
+      const anySuccess = results.some((item) => item.success);
+      if (!anySuccess) {
+        setError("No resumes could be analyzed.");
         setStatus("error");
         setTurnstileToken("");
         return;
       }
 
-      if (typeof data.remaining === "number") setRemaining(data.remaining);
-      if (typeof data.unlocked === "boolean") setUnlocked(data.unlocked);
-
-      if (isBatch) {
-        setBatchResults(data.results ?? []);
-      } else {
-        setResult(data.data);
-      }
+      setBatchResults(results);
+      setRecentJds(addRecentJd(jd));
+      await refreshHistory();
       setStatus("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -144,6 +282,8 @@ export default function Home() {
     setBatchResults(null);
     setError("");
     setStatus("idle");
+    setBatchProgress(null);
+    setCompletedFiles([]);
   };
 
   const handleUnlocked = () => {
@@ -168,6 +308,7 @@ export default function Home() {
       const sampleFile = await fetchSampleResumeFile();
       setFiles([sampleFile]);
       setJd(SAMPLE_JOB_DESCRIPTION);
+      setRecentJds(addRecentJd(SAMPLE_JOB_DESCRIPTION));
       setResult(null);
       setBatchResults(null);
       setStatus("idle");
@@ -179,6 +320,40 @@ export default function Home() {
     }
   };
 
+  const handleSelectHistory = (entry: HistoryEntry) => {
+    setJd(entry.jobDescription);
+    setError("");
+    if (entry.isBatch && entry.batchResults && entry.batchResults.length > 0) {
+      setBatchResults(entry.batchResults);
+      setResult(null);
+      setFiles([]);
+    } else if (entry.result) {
+      setResult(entry.result);
+      setBatchResults(null);
+      setFiles([]);
+    }
+    setStatus("done");
+  };
+
+  const handleClearHistory = async () => {
+    await fetch("/api/history", { method: "DELETE" });
+    setHistoryEntries([]);
+  };
+
+  const handleRemoveHistory = async (entryId: string) => {
+    await fetch(`/api/history?entryId=${encodeURIComponent(entryId)}`, {
+      method: "DELETE",
+    });
+    setHistoryEntries((prev) => prev.filter((entry) => entry.id !== entryId));
+  };
+
+  const pendingBatchFiles =
+    isBatch && batchProgress
+      ? files
+          .slice(batchProgress.current)
+          .map((file) => file.name)
+      : [];
+
   return (
     <div className="min-h-dvh bg-paper pb-[env(safe-area-inset-bottom)] flex flex-col">
       <SiteHeader />
@@ -186,12 +361,28 @@ export default function Home() {
       <main className="mx-auto max-w-4xl flex-1 w-full px-4 py-8 sm:px-6 sm:py-12">
         {status !== "done" && status !== "analyzing" && <PageHero />}
 
+        {status !== "analyzing" && status !== "done" && (
+          <AnalysisHistoryPanel
+            entries={historyEntries}
+            onSelect={handleSelectHistory}
+            onClear={handleClearHistory}
+            onRemove={handleRemoveHistory}
+            disabled={status === "error"}
+          />
+        )}
+
         {status === "error" && (
           <ErrorBanner message={error} onRetry={reset} />
         )}
 
         {status === "analyzing" && (
-          <AnalyzingOverlay batch={isBatch} fileCount={files.length} />
+          <AnalyzingOverlay
+            batch={isBatch}
+            fileCount={files.length}
+            progress={batchProgress ?? undefined}
+            completedFiles={completedFiles}
+            pendingFiles={pendingBatchFiles}
+          />
         )}
 
         {status !== "done" && status !== "analyzing" && (
@@ -209,7 +400,13 @@ export default function Home() {
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8 space-y-8">
               <UploadZone files={files} onFilesChange={setFiles} />
               <div className="border-t border-border" />
-              <JobDescriptionField value={jd} onChange={setJd} />
+              <JobDescriptionField
+                value={jd}
+                onChange={setJd}
+                recentJds={recentJds}
+                onSelectRecent={setJd}
+                onRemoveRecent={(id) => setRecentJds(removeRecentJd(id))}
+              />
               <div className="border-t border-border" />
               <AnalyzeButton
                 isAnalyzing={false}
@@ -235,16 +432,16 @@ export default function Home() {
           </form>
         )}
 
-        {result && !isBatch && (
+        {result && !batchResults && (
           <ResultsPanel
             result={result}
-            resumeFileName={files[0]?.name}
+            resumeFileName={files[0]?.name ?? "Resume"}
             jobDescription={jd}
             onReset={reset}
           />
         )}
 
-        {batchResults && isBatch && (
+        {batchResults && batchResults.length > 0 && (
           <BatchComparisonPanel
             results={batchResults}
             jobDescription={jd}

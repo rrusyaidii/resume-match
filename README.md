@@ -14,6 +14,9 @@ Built with **Next.js 16**, **OpenRouter** (Gemini 2.5 Flash), **Upstash Redis**,
 - **Full report** — Strengths, gaps, verdict, recommendations; open PDF report in a new tab
 - **Resume upload** — PDF or Word (.docx); Google Docs users can download as .docx
 - **Try with sample** — Pre-loaded resume + job description for a quick demo
+- **Analysis history** — Last 10 results in Redis per device; restore with one click
+- **Recent job descriptions** — Last 5 JDs in localStorage for quick reuse
+- **Batch progress** — Per-file progress UI when comparing resumes (1 credit per batch)
 - **Free tier** — 2 free analyses; access code unlocks unlimited use
 - **Light / dark mode** — Toggle in the header; preference saved locally
 - **Responsive UI** — Mobile-friendly forms, results, and comparison grid
