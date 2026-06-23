@@ -2,23 +2,19 @@
 
 import { useEffect, useState } from "react";
 
-export interface BatchProgress {
-  current: number;
-  total: number;
-  fileName: string;
-}
+const SINGLE_STEPS = [
+  { id: 1, label: "Reading resume…", delayMs: 0 },
+  { id: 2, label: "Scoring against job description…", delayMs: 3000 },
+] as const;
 
-export interface CompletedFile {
-  fileName: string;
-  success: boolean;
-}
+const BATCH_STEPS = [
+  { id: 1, label: "Reading resumes…", delayMs: 0 },
+  { id: 2, label: "Scoring candidates…", delayMs: 3000 },
+] as const;
 
 interface AnalyzingOverlayProps {
   batch?: boolean;
   fileCount?: number;
-  progress?: BatchProgress;
-  completedFiles?: CompletedFile[];
-  pendingFiles?: string[];
 }
 
 function Spinner() {
@@ -46,83 +42,16 @@ function Spinner() {
   );
 }
 
-const SINGLE_STEPS = [
-  { id: 1, label: "Reading resume…", delayMs: 0 },
-  { id: 2, label: "Scoring against job description…", delayMs: 3000 },
-] as const;
-
-export function AnalyzingOverlay({
-  batch = false,
-  fileCount = 1,
-  progress,
-  completedFiles = [],
-  pendingFiles = [],
-}: AnalyzingOverlayProps) {
+export function AnalyzingOverlay({ batch = false, fileCount = 1 }: AnalyzingOverlayProps) {
+  const steps = batch ? BATCH_STEPS : SINGLE_STEPS;
   const [activeStep, setActiveStep] = useState(1);
-  const showRealBatchProgress = batch && progress && progress.total > 1;
 
   useEffect(() => {
-    if (showRealBatchProgress) return;
-    const steps = SINGLE_STEPS;
     const timers = steps.slice(1).map((step) =>
       window.setTimeout(() => setActiveStep(step.id), step.delayMs)
     );
     return () => timers.forEach(clearTimeout);
-  }, [showRealBatchProgress]);
-
-  if (showRealBatchProgress) {
-    return (
-      <div
-        className="rounded-2xl border border-border bg-card p-8 sm:p-12 shadow-sm text-center"
-        aria-live="polite"
-        aria-busy="true"
-      >
-        <div className="flex justify-center mb-6">
-          <Spinner />
-        </div>
-
-        <h2 className="font-display text-xl font-semibold text-ink sm:text-2xl mb-2">
-          Analyzing {progress.current} of {progress.total}
-        </h2>
-        <p className="text-sm text-muted mb-8 truncate max-w-md mx-auto" title={progress.fileName}>
-          {progress.fileName}
-        </p>
-
-        <ul className="mx-auto max-w-md space-y-2 text-left">
-          {completedFiles.map((item) => (
-            <li
-              key={item.fileName}
-              className="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm bg-match/5 text-ink"
-            >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-match/15 text-match text-xs font-bold">
-                ✓
-              </span>
-              <span className="truncate">{item.fileName}</span>
-            </li>
-          ))}
-          <li className="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm bg-teal/10 text-ink font-medium">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal text-white text-xs font-bold">
-              …
-            </span>
-            <span className="truncate">{progress.fileName}</span>
-          </li>
-          {pendingFiles.map((name) => (
-            <li
-              key={name}
-              className="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-muted/50"
-            >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-border/60 text-muted text-xs font-bold">
-                ·
-              </span>
-              <span className="truncate">{name}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
-
-  const steps = SINGLE_STEPS;
+  }, [steps]);
 
   return (
     <div

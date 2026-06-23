@@ -16,11 +16,7 @@ import { AccessCodeField } from "@/components/access-code-field";
 import { AccessCodeModal } from "@/components/access-code-modal";
 import { AccessLimitModal } from "@/components/access-limit-modal";
 import { ErrorBanner } from "@/components/error-banner";
-import {
-  AnalyzingOverlay,
-  type BatchProgress,
-  type CompletedFile,
-} from "@/components/analyzing-overlay";
+import { AnalyzingOverlay } from "@/components/analyzing-overlay";
 import { BatchComparisonPanel } from "@/components/batch-comparison-panel";
 import { ResultsPanel } from "@/components/results-panel";
 import { AnalysisHistoryPanel } from "@/components/analysis-history-panel";
@@ -70,8 +66,6 @@ export default function Home() {
   const [error, setError] = useState("");
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
-  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
-  const [completedFiles, setCompletedFiles] = useState<CompletedFile[]>([]);
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const turnstileRequired = !unlocked && Boolean(turnstileSiteKey);
@@ -167,8 +161,6 @@ export default function Home() {
     setError("");
     setResult(null);
     setBatchResults(null);
-    setBatchProgress(null);
-    setCompletedFiles([]);
 
     try {
       if (!isBatch) {
@@ -206,8 +198,6 @@ export default function Home() {
         const file = files[i]!;
         const isLast = i === files.length - 1;
 
-        setBatchProgress({ current: i + 1, total, fileName: file.name });
-
         const { response, data } = await analyzeOneFile(file, {
           batchSessionId,
           batchTotal: batchSessionId ? undefined : total,
@@ -236,7 +226,6 @@ export default function Home() {
             success: false,
             error: data.error || "Analysis failed.",
           });
-          setCompletedFiles((prev) => [...prev, { fileName: file.name, success: false }]);
 
           if (i === 0) {
             setError(data.error || "Analysis failed. Try again.");
@@ -253,7 +242,6 @@ export default function Home() {
           success: true,
           data: data.data,
         });
-        setCompletedFiles((prev) => [...prev, { fileName: file.name, success: true }]);
       }
 
       const anySuccess = results.some((item) => item.success);
@@ -282,8 +270,6 @@ export default function Home() {
     setBatchResults(null);
     setError("");
     setStatus("idle");
-    setBatchProgress(null);
-    setCompletedFiles([]);
   };
 
   const handleUnlocked = () => {
@@ -347,13 +333,6 @@ export default function Home() {
     setHistoryEntries((prev) => prev.filter((entry) => entry.id !== entryId));
   };
 
-  const pendingBatchFiles =
-    isBatch && batchProgress
-      ? files
-          .slice(batchProgress.current)
-          .map((file) => file.name)
-      : [];
-
   return (
     <div className="min-h-dvh bg-paper pb-[env(safe-area-inset-bottom)] flex flex-col">
       <SiteHeader />
@@ -376,13 +355,7 @@ export default function Home() {
         )}
 
         {status === "analyzing" && (
-          <AnalyzingOverlay
-            batch={isBatch}
-            fileCount={files.length}
-            progress={batchProgress ?? undefined}
-            completedFiles={completedFiles}
-            pendingFiles={pendingBatchFiles}
-          />
+          <AnalyzingOverlay batch={isBatch} fileCount={files.length} />
         )}
 
         {status !== "done" && status !== "analyzing" && (
