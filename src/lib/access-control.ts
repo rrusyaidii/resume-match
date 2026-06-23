@@ -145,6 +145,11 @@ export interface AccessCheckResult extends AccessStatus {
   setDeviceCookie: boolean;
 }
 
+export function isUnlockedRequest(request: NextRequest): boolean {
+  const payload = parsePayload(request.cookies.get(ACCESS_COOKIE_NAME)?.value);
+  return payload.unlocked;
+}
+
 export async function getAccessStatus(request: NextRequest): Promise<AccessCheckResult> {
   const identity = getRequestIdentity(request);
   const payload = parsePayload(request.cookies.get(ACCESS_COOKIE_NAME)?.value);

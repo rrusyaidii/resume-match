@@ -17,6 +17,7 @@ import { ErrorBanner } from "@/components/error-banner";
 import { AnalyzingOverlay } from "@/components/analyzing-overlay";
 import { BatchComparisonPanel } from "@/components/batch-comparison-panel";
 import { ResultsPanel } from "@/components/results-panel";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 import {
   SAMPLE_JOB_DESCRIPTION,
   fetchSampleResumeFile,
@@ -36,6 +37,10 @@ export default function Home() {
   const [batchResults, setBatchResults] = useState<BatchResultItem[] | null>(null);
   const [error, setError] = useState("");
   const [isLoadingSample, setIsLoadingSample] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const turnstileRequired = !unlocked && Boolean(turnstileSiteKey);
 
   const canSubmit = files.length >= 1 && validateJobDescription(jd).valid;
   const isLimitReached = remaining === 0 && !unlocked;
@@ -65,6 +70,12 @@ export default function Home() {
       return;
     }
 
+    if (turnstileRequired && !turnstileToken) {
+      setError("Complete the security check below before analyzing.");
+      setStatus("error");
+      return;
+    }
+
     setStatus("analyzing");
     setError("");
     setResult(null);
@@ -74,6 +85,9 @@ export default function Home() {
     formData.append("jobDescription", jd);
     for (const file of files) {
       formData.append("resume", file);
+    }
+    if (turnstileRequired && turnstileToken) {
+      formData.append("turnstileToken", turnstileToken);
     }
 
     const endpoint = isBatch ? "/api/analyze-batch" : "/api/analyze";
@@ -94,14 +108,16 @@ export default function Home() {
       const data = await res.json();
 
       if (!data.success) {
-        if (res.status === 429) {
+        if (res.status === 429 && data.error?.includes("Free limit")) {
           setRemaining(0);
           setLimitModalOpen(true);
           setStatus("idle");
+          setTurnstileToken("");
           return;
         }
         setError(data.error || "Analysis failed. Try again.");
         setStatus("error");
+        setTurnstileToken("");
         return;
       }
 
@@ -117,6 +133,7 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setStatus("error");
+      setTurnstileToken("");
     }
   };
 
@@ -132,6 +149,7 @@ export default function Home() {
   const handleUnlocked = () => {
     setUnlocked(true);
     setRemaining(-1);
+    setTurnstileToken("");
   };
 
   const openUnlockFlow = () => {
@@ -195,12 +213,19 @@ export default function Home() {
               <div className="border-t border-border" />
               <AnalyzeButton
                 isAnalyzing={false}
-                disabled={!canSubmit}
+                disabled={!canSubmit || (turnstileRequired && !turnstileToken)}
                 limitReached={isLimitReached}
                 remaining={remaining}
                 unlocked={unlocked}
                 fileCount={files.length}
               />
+              {turnstileRequired && turnstileSiteKey && (
+                <TurnstileWidget
+                  siteKey={turnstileSiteKey}
+                  onToken={setTurnstileToken}
+                  onExpire={() => setTurnstileToken("")}
+                />
+              )}
               <AccessCodeField
                 remaining={remaining}
                 unlocked={unlocked}

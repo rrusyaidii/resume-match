@@ -4,8 +4,11 @@ import { processResumePdf } from "@/lib/analyze-resume-file";
 import {
   attachAccessCookies,
   checkAndConsumeAccess,
+  isUnlockedRequest,
 } from "@/lib/access-control";
-import { FREE_ANALYSIS_LIMIT } from "@/lib/constants";
+import { FREE_ANALYSIS_LIMIT, RATE_LIMIT_MESSAGE } from "@/lib/constants";
+import { checkAnalyzeRateLimit } from "@/lib/redis-rate-limit";
+import { isTurnstileConfigured, verifyTurnstileFromRequest } from "@/lib/turnstile";
 import { validateJobDescription } from "@/lib/validate-job-description";
 
 export const runtime = "nodejs";
@@ -18,11 +21,22 @@ interface AnalyzeResponse {
   unlocked?: boolean;
 }
 
+function rateLimitResponse(retryAfterSec?: number) {
+  return NextResponse.json<AnalyzeResponse>(
+    { success: false, error: RATE_LIMIT_MESSAGE },
+    {
+      status: 429,
+      headers: retryAfterSec ? { "Retry-After": String(retryAfterSec) } : undefined,
+    }
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get("resume") as File | null;
     const jobDescription = formData.get("jobDescription") as string | null;
+    const turnstileToken = formData.get("turnstileToken");
 
     if (!file) {
       return NextResponse.json<AnalyzeResponse>(
@@ -37,6 +51,26 @@ export async function POST(request: NextRequest) {
         { success: false, error: jdCheck.error ?? "Invalid job description." },
         { status: 400 }
       );
+    }
+
+    const unlocked = isUnlockedRequest(request);
+
+    const rate = await checkAnalyzeRateLimit(request, { unlocked });
+    if (!rate.allowed) {
+      return rateLimitResponse(rate.retryAfterSec);
+    }
+
+    if (!unlocked && isTurnstileConfigured()) {
+      const valid = await verifyTurnstileFromRequest(
+        typeof turnstileToken === "string" ? turnstileToken : null,
+        request
+      );
+      if (!valid) {
+        return NextResponse.json<AnalyzeResponse>(
+          { success: false, error: "Security check failed. Please try again." },
+          { status: 403 }
+        );
+      }
     }
 
     const access = await checkAndConsumeAccess(request);

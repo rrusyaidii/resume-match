@@ -45,6 +45,22 @@ Required env vars: `OPENROUTER_API_KEY`, `ACCESS_PASSWORD`, `COOKIE_SECRET`, `UP
 3. Add both to `.env.local` (and Vercel project env vars for production)
 4. Redeploy after adding env vars
 
+### Rate limits (Upstash Redis)
+
+Analyze endpoints enforce burst and daily caps for free-tier traffic:
+
+| Limit | Default |
+|-------|---------|
+| Burst per IP | 3 / 10 min |
+| Daily per IP | 10 / 24 h |
+| Global daily (free tier) | 200 / 24 h |
+
+Unlocked users skip IP limits. Tune in `src/lib/constants.ts`.
+
+### Cloudflare Turnstile (optional)
+
+Add `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to require a captcha on free-tier analyze only. Unlocked users skip it.
+
 ## Project structure
 
 ```

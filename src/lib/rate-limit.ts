@@ -7,6 +7,7 @@ interface Bucket {
 
 const buckets = new Map<string, Bucket>();
 
+/** @deprecated Use redis-rate-limit.ts for production paths */
 export function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
@@ -15,6 +16,7 @@ export function getClientIp(request: NextRequest): string {
   return request.headers.get("x-real-ip") || "unknown";
 }
 
+/** @deprecated Use redis-rate-limit.ts for production paths */
 export function checkRateLimit(
   key: string,
   limit: number,

@@ -3,17 +3,16 @@ import {
   attachAccessCookies,
   unlockWithPassword,
 } from "@/lib/access-control";
-import { UNLOCK_RATE_LIMIT, UNLOCK_RATE_WINDOW_MS } from "@/lib/constants";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { RATE_LIMIT_MESSAGE } from "@/lib/constants";
+import { checkUnlockRateLimit } from "@/lib/redis-rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
-    const ip = getClientIp(request);
-    const rate = checkRateLimit(`unlock:${ip}`, UNLOCK_RATE_LIMIT, UNLOCK_RATE_WINDOW_MS);
+    const rate = await checkUnlockRateLimit(request);
 
     if (!rate.allowed) {
       return NextResponse.json(
-        { success: false, error: "Too many attempts. Try again later." },
+        { success: false, error: RATE_LIMIT_MESSAGE },
         {
           status: 429,
           headers: rate.retryAfterSec
