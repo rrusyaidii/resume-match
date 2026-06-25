@@ -58,6 +58,10 @@ async function loadHistory(): Promise<HistoryEntry[]> {
   return [];
 }
 
+function withFileName(fileName: string, message: string): string {
+  return message.includes(fileName) ? message : `${fileName}: ${message}`;
+}
+
 export default function Home() {
   const [status, setStatus] = useState<Status>("idle");
   const [files, setFiles] = useState<File[]>([]);
@@ -242,7 +246,7 @@ export default function Home() {
             setTurnstileToken("");
             return;
           }
-          setError(data.error || "Analysis failed. Try again.");
+          setError(withFileName(files[0].name, data.error || "Analysis failed. Try again."));
           setStatus("error");
           setTurnstileToken("");
           return;
@@ -295,7 +299,7 @@ export default function Home() {
             error: data.error || "Analysis failed.",
           });
           if (i === 0) {
-            setError(data.error || "Analysis failed. Try again.");
+            setError(withFileName(file.name, data.error || "Analysis failed. Try again."));
             setStatus("error");
             setTurnstileToken("");
             return;

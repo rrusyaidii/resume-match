@@ -1,7 +1,10 @@
 import { analyzeResume, type AIAnalysisResult } from "@/lib/ai-client";
 import { extractTextFromDocx } from "@/lib/extract-docx";
 import { extractTextFromPdf } from "@/lib/extract-pdf";
-import { EMPTY_RESUME_ERROR } from "@/lib/constants";
+import {
+  EMPTY_RESUME_DETAIL,
+  formatResumeFileError,
+} from "@/lib/constants";
 import {
   detectResumeType,
   isPdfBuffer,
@@ -30,7 +33,10 @@ async function extractResumeText(
 ): Promise<{ text: string } | { error: string; status: number }> {
   const bufferCheck = validateResumeBuffer(buffer, fileName);
   if ("error" in bufferCheck) {
-    return { error: bufferCheck.error, status: 400 };
+    return {
+      error: formatResumeFileError(fileName, bufferCheck.error),
+      status: 400,
+    };
   }
 
   try {
@@ -40,17 +46,26 @@ async function extractResumeText(
         : await extractTextFromDocx(buffer);
 
     if (!text.trim()) {
-      return { error: EMPTY_RESUME_ERROR, status: 422 };
+      return {
+        error: formatResumeFileError(fileName, EMPTY_RESUME_DETAIL),
+        status: 422,
+      };
     }
 
     return { text };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message.includes("too many pages")) {
-      return { error: message, status: 400 };
+      return {
+        error: formatResumeFileError(fileName, message),
+        status: 400,
+      };
     }
     return {
-      error: message || "Failed to read resume file.",
+      error: formatResumeFileError(
+        fileName,
+        message || "Failed to read resume file."
+      ),
       status: 400,
     };
   }
@@ -62,7 +77,11 @@ export async function processResumeFile(
 ): Promise<ProcessResumeResult> {
   const fileError = validateResumeFile(file);
   if (fileError) {
-    return { success: false, error: fileError, status: 400 };
+    return {
+      success: false,
+      error: formatResumeFileError(file.name, fileError),
+      status: 400,
+    };
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());

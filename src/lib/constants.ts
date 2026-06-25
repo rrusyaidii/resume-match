@@ -23,8 +23,15 @@ export const HISTORY_MAX_ITEMS = 10;
 export const BATCH_SESSION_TTL_SEC = 15 * 60;
 export const RECENT_JD_MAX_ITEMS = 5;
 
-export const EMPTY_RESUME_ERROR =
-  "Could not read text from this file. Use a text-based PDF or .docx export from Word/Google Docs.";
+export const EMPTY_RESUME_DETAIL =
+  "Could not read text. Use a text-based PDF or .docx export from Word/Google Docs.";
+
+export function formatResumeFileError(fileName: string, detail: string): string {
+  return `${fileName}: ${detail}`;
+}
+
+/** @deprecated Use formatResumeFileError(fileName, EMPTY_RESUME_DETAIL) */
+export const EMPTY_RESUME_ERROR = `Could not read text from this file. ${EMPTY_RESUME_DETAIL}`;
 
 /** @deprecated Use EMPTY_RESUME_ERROR */
 export const SCANNED_PDF_ERROR = EMPTY_RESUME_ERROR;

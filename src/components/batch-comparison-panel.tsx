@@ -7,6 +7,12 @@ import { ResultsPanel } from "./results-panel";
 import { getTierMeta } from "./results-utils";
 import { GoogleSheetsActions } from "./google-sheets-actions";
 
+function errorDetail(fileName: string, error?: string): string {
+  if (!error) return "Analysis failed.";
+  const prefix = `${fileName}: `;
+  return error.startsWith(prefix) ? error.slice(prefix.length) : error;
+}
+
 interface BatchComparisonPanelProps {
   results: BatchResultItem[];
   jobDescription: string;
@@ -188,7 +194,7 @@ export function BatchComparisonPanel({
               <li key={item.fileName} className="text-sm">
                 <span className="font-medium text-ink">{item.fileName}</span>
                 <span className="text-muted"> — </span>
-                <span className="text-gap">{item.error}</span>
+                <span className="text-gap">{errorDetail(item.fileName, item.error)}</span>
               </li>
             ))}
           </ul>
