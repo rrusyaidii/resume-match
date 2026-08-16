@@ -130,6 +130,34 @@ export async function deleteHistoryEntry(
   }
 }
 
+export async function updateHistoryEntry(
+  deviceId: string,
+  entryId: string,
+  patch: Partial<HistoryEntry>
+): Promise<boolean> {
+  const entries = await getHistory(deviceId);
+  const index = entries.findIndex((entry) => entry.id === entryId);
+  if (index === -1) return false;
+
+  const updated = entries.map((entry, i) =>
+    i === index ? { ...entry, ...patch, id: entry.id } : entry
+  );
+
+  if (!isRedisConfigured()) {
+    devHistory.set(deviceId, updated);
+    return true;
+  }
+
+  const client = getRedisClient()!;
+  const key = historyKey(deviceId);
+  await client.del(key);
+  // LPUSH prepends each element in turn, so push oldest-first to preserve newest-first order.
+  const ordered = [...updated].reverse();
+  await client.lpush(key, ...ordered.map((entry) => JSON.stringify(entry)));
+  await client.ltrim(key, 0, HISTORY_MAX_ITEMS - 1);
+  return true;
+}
+
 export async function clearHistory(deviceId: string): Promise<void> {
   if (!isRedisConfigured()) {
     devHistory.delete(deviceId);

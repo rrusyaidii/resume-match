@@ -22,6 +22,8 @@ import {
 } from "@/components/analyzing-overlay";
 import { BatchComparisonPanel } from "@/components/batch-comparison-panel";
 import { ResultsPanel } from "@/components/results-panel";
+import { InterviewPrepPanel } from "@/components/interview-prep-panel";
+import type { InterviewPrepResult } from "@/lib/interview-prep-types";
 import { AnalysisHistoryPanel } from "@/components/analysis-history-panel";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 import {
@@ -43,6 +45,13 @@ interface AnalyzeApiResponse {
   unlocked?: boolean;
   batchSessionId?: string;
   batchComplete?: boolean;
+  historyId?: string;
+}
+
+interface PrepApiResponse {
+  success: boolean;
+  data?: InterviewPrepResult;
+  error?: string;
 }
 
 async function loadHistory(): Promise<HistoryEntry[]> {
@@ -78,6 +87,10 @@ export default function Home() {
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
+  const [prep, setPrep] = useState<InterviewPrepResult | null>(null);
+  const [prepStatus, setPrepStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [prepError, setPrepError] = useState("");
+  const [historyId, setHistoryId] = useState<string | null>(null);
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const turnstileRequired = !unlocked && Boolean(turnstileSiteKey);
@@ -231,6 +244,7 @@ export default function Home() {
     setResult(null);
     setBatchResults(null);
     setBatchProgress(null);
+    resetPrep();
 
     try {
       if (!isBatch) {
@@ -254,6 +268,7 @@ export default function Home() {
 
         applyAnalyzeMeta(data);
         setResult(data.data ?? null);
+        setHistoryId(data.historyId ?? null);
         setRecentJds(addRecentJd(jd));
         setStatus("done");
         void refreshHistory();
@@ -334,6 +349,49 @@ export default function Home() {
     }
   };
 
+  const resetPrep = () => {
+    setPrep(null);
+    setPrepStatus("idle");
+    setPrepError("");
+    setHistoryId(null);
+  };
+
+  const handleGeneratePrep = async () => {
+    const file = files[0];
+    if (!file || !result || prepStatus === "loading") return;
+
+    setPrepStatus("loading");
+    setPrepError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("resume", file);
+      formData.append("jobDescription", jd);
+      formData.append("analysis", JSON.stringify(result));
+      if (historyId) formData.append("historyId", historyId);
+
+      const response = await fetch("/api/prep", { method: "POST", body: formData });
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        throw new Error("Could not build your prep pack. Please try again.");
+      }
+
+      const data = (await response.json()) as PrepApiResponse;
+      if (!data.success || !data.data) {
+        setPrepError(data.error || "Could not build your prep pack. Please try again.");
+        setPrepStatus("error");
+        return;
+      }
+
+      setPrep(data.data);
+      setPrepStatus("idle");
+      void refreshHistory();
+    } catch (err) {
+      setPrepError(err instanceof Error ? err.message : "Could not build your prep pack.");
+      setPrepStatus("error");
+    }
+  };
+
   const reset = () => {
     setFiles([]);
     setJd("");
@@ -342,6 +400,7 @@ export default function Home() {
     setBatchProgress(null);
     setError("");
     setStatus("idle");
+    resetPrep();
   };
 
   const handleUnlocked = () => {
@@ -370,6 +429,7 @@ export default function Home() {
       setResult(null);
       setBatchResults(null);
       setStatus("idle");
+      resetPrep();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load sample data.");
       setStatus("error");
@@ -381,6 +441,9 @@ export default function Home() {
   const handleSelectHistory = (entry: HistoryEntry) => {
     setJd(entry.jobDescription);
     setError("");
+    // The resume file is never stored, so a saved prep can be shown but not regenerated.
+    resetPrep();
+    setPrep(entry.prep ?? null);
     if (entry.isBatch && entry.batchResults && entry.batchResults.length > 0) {
       setBatchResults(entry.batchResults);
       setResult(null);
@@ -500,12 +563,20 @@ export default function Home() {
         )}
 
         {status === "done" && result && !showBatchResults && (
-          <ResultsPanel
-            result={result}
-            resumeFileName={files[0]?.name ?? "Resume"}
-            jobDescription={jd}
-            onReset={reset}
-          />
+          <>
+            <ResultsPanel
+              result={result}
+              resumeFileName={files[0]?.name ?? "Resume"}
+              jobDescription={jd}
+              onReset={reset}
+              onGeneratePrep={handleGeneratePrep}
+              prepStatus={prepStatus}
+              prepError={prepError}
+              canGeneratePrep={files.length === 1}
+              hasPrep={Boolean(prep)}
+            />
+            {prep && <InterviewPrepPanel prep={prep} />}
+          </>
         )}
 
         {status === "done" && showBatchResults && batchResults && (

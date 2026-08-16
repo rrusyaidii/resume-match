@@ -10,6 +10,10 @@ import {
   verdictConflictsWithDecision,
   type RubricDimensionScore,
 } from "@/lib/evaluation-rubric";
+import { extractJsonObject, isJsonParseError, repairJson } from "@/lib/llm-json";
+
+/** Model used for resume scoring. Prep generation has its own constant. */
+export const ANALYSIS_MODEL = "google/gemini-2.5-flash";
 
 export interface AIAnalysisResult {
   matchScore: number;
@@ -310,28 +314,6 @@ function keywordMatch(resume: string, jd: string): AIAnalysisResult {
   });
 }
 
-function extractJsonObject(raw: string): string {
-  const cleaned = raw
-    .replace(/```json\s*/gi, "")
-    .replace(/```/g, "")
-    .trim();
-
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start !== -1 && end > start) {
-    return cleaned.slice(start, end + 1);
-  }
-
-  return cleaned;
-}
-
-function repairJson(text: string): string {
-  return text
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/,\s*([\]}])/g, "$1");
-}
-
 function parseJsonResponse(raw: string): AIAnalysisResult {
   const candidates = [raw, repairJson(extractJsonObject(raw))];
   let lastError: Error | undefined;
@@ -367,7 +349,7 @@ async function requestOpenRouterAnalysis(
       "X-Title": "ResuMatch",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: ANALYSIS_MODEL,
       messages: [
         { role: "system", content: buildRubricSystemPrompt(playbook) },
         {
@@ -403,14 +385,11 @@ async function callOpenRouter(
   try {
     return await requestOpenRouterAnalysis(resumeText, jobDescription);
   } catch (firstError) {
-    const message = firstError instanceof Error ? firstError.message : String(firstError);
-    const isJsonError =
-      message.includes("JSON") || message.includes("Unexpected token") || message.includes("position");
-
-    if (!isJsonError) {
+    if (!isJsonParseError(firstError)) {
       throw firstError;
     }
 
+    const message = firstError instanceof Error ? firstError.message : String(firstError);
     console.warn("AI JSON parse failed, retrying once:", message);
     return await requestOpenRouterAnalysis(resumeText, jobDescription);
   }
@@ -428,5 +407,5 @@ export async function analyzeResume(
 }
 
 export function getAvailableModels() {
-  return [{ name: "OpenRouter / google/gemini-2.5-flash" }];
+  return [{ name: `OpenRouter / ${ANALYSIS_MODEL}` }];
 }

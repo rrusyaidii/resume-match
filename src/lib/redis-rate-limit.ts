@@ -8,6 +8,10 @@ import {
   ANALYZE_GLOBAL_DAILY_WINDOW_SEC,
   ANALYZE_IP_DAILY_LIMIT,
   ANALYZE_IP_DAILY_WINDOW_SEC,
+  PREP_GLOBAL_DAILY_LIMIT,
+  PREP_GLOBAL_DAILY_WINDOW_SEC,
+  PREP_IP_HOURLY_LIMIT,
+  PREP_IP_HOURLY_WINDOW_SEC,
   UNLOCK_RATE_LIMIT,
   UNLOCK_RATE_WINDOW_SEC,
 } from "./constants";
@@ -144,6 +148,29 @@ export async function checkAnalyzeRateLimit(
   if (!daily.allowed) return daily;
 
   return { allowed: true };
+}
+
+export async function checkPrepRateLimit(
+  request: NextRequest,
+  options: { unlocked: boolean }
+): Promise<RateLimitResult> {
+  if (options.unlocked) {
+    return { allowed: true };
+  }
+
+  const global = await checkLimit(
+    "prep:global:day",
+    PREP_GLOBAL_DAILY_LIMIT,
+    PREP_GLOBAL_DAILY_WINDOW_SEC
+  );
+  if (!global.allowed) return global;
+
+  const ipHash = hashIp(getClientIp(request));
+  return checkLimit(
+    `prep:ip:${ipHash}:hour`,
+    PREP_IP_HOURLY_LIMIT,
+    PREP_IP_HOURLY_WINDOW_SEC
+  );
 }
 
 export async function checkUnlockRateLimit(request: NextRequest): Promise<RateLimitResult> {

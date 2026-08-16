@@ -16,6 +16,13 @@ interface ResultsPanelProps {
   onReset: () => void;
   showActions?: boolean;
   scrollOnMount?: boolean;
+  onGeneratePrep?: () => void;
+  prepStatus?: "idle" | "loading" | "error";
+  prepError?: string;
+  /** False when the resume file is gone (e.g. reopened from history), so prep cannot be built. */
+  canGeneratePrep?: boolean;
+  /** True once a prep pack is on screen — hides the CTA. */
+  hasPrep?: boolean;
 }
 
 export function ResultsPanel({
@@ -25,6 +32,11 @@ export function ResultsPanel({
   onReset,
   showActions = true,
   scrollOnMount = true,
+  onGeneratePrep,
+  prepStatus = "idle",
+  prepError,
+  canGeneratePrep = true,
+  hasPrep = false,
 }: ResultsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const meta = getTierMeta(result.matchScore);
@@ -54,6 +66,8 @@ export function ResultsPanel({
   };
 
   const showSheetsExport = showActions && Boolean(jobDescription?.trim());
+  // Batch renders ResultsPanel with showActions=false, which keeps prep off batch results.
+  const showPrepCta = showActions && Boolean(onGeneratePrep) && !hasPrep;
   const exportResults: BatchResultItem[] = [
     {
       fileName: resumeFileName ?? "Resume",
@@ -169,6 +183,32 @@ export function ResultsPanel({
           <RecommendationsList items={result.recommendations} />
         </div>
       </article>
+
+      {showPrepCta && (
+        <div className="rounded-2xl border border-teal/25 bg-teal/[0.04] px-4 py-5 sm:px-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-ink">Now prepare for the interview</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                {canGeneratePrep
+                  ? "Get the questions you are likely to face, STAR answers built from your own resume, and how to defend the gaps above."
+                  : "Re-upload this resume to build a prep pack — the file is not stored after analysis."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onGeneratePrep}
+              disabled={!canGeneratePrep || prepStatus === "loading"}
+              className="w-full shrink-0 rounded-xl bg-teal px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-teal/90 disabled:opacity-50 disabled:hover:bg-teal transition-colors focus-ring sm:w-auto"
+            >
+              {prepStatus === "loading" ? "Building your prep…" : "Prep for this interview"}
+            </button>
+          </div>
+          {prepStatus === "error" && prepError && (
+            <p className="mt-3 text-sm font-medium text-gap">{prepError}</p>
+          )}
+        </div>
+      )}
 
       {showActions && (
         <>
