@@ -18,16 +18,30 @@ function normalizeDeviceId(value?: string): string | null {
   return value;
 }
 
+/**
+ * Memoized per request: several helpers resolve the identity independently during
+ * one request, and without this each would mint a different UUID for a new device —
+ * leaving data written under an id that never reaches the cookie.
+ */
+const deviceIdCache = new WeakMap<
+  NextRequest,
+  { deviceId: string; isNewDevice: boolean }
+>();
+
 export function getOrCreateDeviceId(request: NextRequest): {
   deviceId: string;
   isNewDevice: boolean;
 } {
-  const existing = normalizeDeviceId(request.cookies.get(DEVICE_COOKIE_NAME)?.value);
-  if (existing) {
-    return { deviceId: existing, isNewDevice: false };
-  }
+  const cached = deviceIdCache.get(request);
+  if (cached) return cached;
 
-  return { deviceId: randomUUID(), isNewDevice: true };
+  const existing = normalizeDeviceId(request.cookies.get(DEVICE_COOKIE_NAME)?.value);
+  const resolved = existing
+    ? { deviceId: existing, isNewDevice: false }
+    : { deviceId: randomUUID(), isNewDevice: true };
+
+  deviceIdCache.set(request, resolved);
+  return resolved;
 }
 
 export function getRequestFingerprint(request: NextRequest): string {
