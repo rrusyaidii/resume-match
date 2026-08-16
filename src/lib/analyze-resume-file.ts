@@ -98,6 +98,32 @@ export async function processResumeFile(
   return { success: true, data };
 }
 
+/**
+ * Extracts and truncates resume text without scoring it.
+ * Used by interview prep, which needs the text but not a second analysis.
+ */
+export async function extractResumeTextFromFile(
+  file: File
+): Promise<{ success: true; text: string } | ProcessResumeFailure> {
+  const fileError = validateResumeFile(file);
+  if (fileError) {
+    return {
+      success: false,
+      error: formatResumeFileError(file.name, fileError),
+      status: 400,
+    };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const extracted = await extractResumeText(buffer, file.name);
+
+  if ("error" in extracted) {
+    return { success: false, error: extracted.error, status: extracted.status };
+  }
+
+  return { success: true, text: extracted.text.slice(0, 8000) };
+}
+
 /** @deprecated Use processResumeFile */
 export async function processResumePdf(
   file: File,

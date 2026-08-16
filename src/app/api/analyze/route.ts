@@ -34,6 +34,8 @@ interface AnalyzeResponse {
   unlocked?: boolean;
   batchSessionId?: string;
   batchComplete?: boolean;
+  /** Single-resume only. Lets the client attach a prep pack to this history entry. */
+  historyId?: string;
 }
 
 function rateLimitResponse(retryAfterSec?: number) {
@@ -180,11 +182,12 @@ export async function POST(request: NextRequest) {
     const sessionId = batchSessionId ?? newBatchSessionId;
     const isBatchComplete = batchAdvance?.ok === true && batchAdvance.isComplete;
 
+    let historyId: string | undefined;
+
     if (!sessionId) {
-      await appendHistory(
-        identity.deviceId,
-        buildSingleHistoryEntry(file.name, jd, result.data)
-      );
+      const entry = buildSingleHistoryEntry(file.name, jd, result.data);
+      await appendHistory(identity.deviceId, entry);
+      historyId = entry.id;
     } else if (isBatchComplete) {
       const completed: BatchResultItem[] = batchResults ? [...batchResults] : [];
       completed.push({ fileName: file.name, success: true, data: result.data });
@@ -198,6 +201,7 @@ export async function POST(request: NextRequest) {
       unlocked: access.unlocked,
       batchSessionId: sessionId,
       batchComplete: isBatchComplete,
+      historyId,
     });
 
     return attachAccessCookies(response, access);

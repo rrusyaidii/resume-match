@@ -16,6 +16,14 @@ export const ANALYZE_IP_DAILY_WINDOW_SEC = 24 * 60 * 60;
 export const ANALYZE_GLOBAL_DAILY_LIMIT = 200;
 export const ANALYZE_GLOBAL_DAILY_WINDOW_SEC = 24 * 60 * 60;
 
+export const PREP_IP_HOURLY_LIMIT = 5;
+export const PREP_IP_HOURLY_WINDOW_SEC = 60 * 60;
+export const PREP_GLOBAL_DAILY_LIMIT = 200;
+export const PREP_GLOBAL_DAILY_WINDOW_SEC = 24 * 60 * 60;
+
+export const PREP_RATE_LIMIT_MESSAGE =
+  "Too many prep requests. Try again later or enter an access code.";
+
 export const RATE_LIMIT_MESSAGE =
   "Too many requests. Try again later or enter an access code.";
 
